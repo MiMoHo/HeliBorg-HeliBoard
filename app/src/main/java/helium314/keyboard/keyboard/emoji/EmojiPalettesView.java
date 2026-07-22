@@ -13,15 +13,20 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
+import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
+import android.view.Gravity;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.PopupWindow;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager2.widget.ViewPager2;
@@ -38,6 +43,7 @@ import helium314.keyboard.keyboard.MainKeyboardView;
 import helium314.keyboard.keyboard.PointerTracker;
 import helium314.keyboard.keyboard.internal.KeyDrawParams;
 import helium314.keyboard.keyboard.internal.KeyVisualAttributes;
+import helium314.keyboard.keyboard.internal.KeyboardIconsSet;
 import helium314.keyboard.keyboard.internal.keyboard_parser.EmojiParserKt;
 import helium314.keyboard.keyboard.internal.keyboard_parser.floris.KeyCode;
 import helium314.keyboard.latin.AudioAndHapticFeedbackManager;
@@ -200,6 +206,12 @@ public final class EmojiPalettesView extends LinearLayout
     private KeyboardActionListener mKeyboardActionListener = KeyboardActionListener.EMPTY_LISTENER;
     private final EmojiCategory mEmojiCategory;
     private ViewPager2 mPager;
+    // "Clear all recents" confirmation: long-pressing the recents tab pops up a single delete
+    // button; the list is only cleared when the finger is released on that button.
+    private PopupWindow mClearRecentsPopup;
+    private ImageView mClearRecentsButton;
+    private boolean mClearRecentsArmed;
+    private boolean mClearRecentsHighlighted;
 
     public EmojiPalettesView(final Context context, final AttributeSet attrs) {
         this(context, attrs, R.attr.emojiPalettesViewStyle);
@@ -247,12 +259,7 @@ public final class EmojiPalettesView extends LinearLayout
         iconView.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
         iconView.setOnClickListener(this);
         if (category == EmojiCategory.Category.RECENTS) {
-            iconView.setOnLongClickListener(v -> {
-                AudioAndHapticFeedbackManager.getInstance().performHapticAndAudioFeedback(KeyCode.NOT_SPECIFIED, this, HapticEvent.KEY_LONG_PRESS);
-                clearRecentKeys();
-
-                return true;
-            });
+            setupClearRecentsGesture(iconView);
         }
     }
 
@@ -339,6 +346,99 @@ public final class EmojiPalettesView extends LinearLayout
         KeyboardSwitcher.getInstance().showToast(getResources().getString(R.string.recent_emojis_cleared), true);
     }
 
+    // Long-pressing the recents category tab reveals a single delete button next to it. Releasing
+    // the finger on that button clears all recent emojis; releasing anywhere else cancels. This
+    // mirrors the long-press-to-delete gesture used for individual recent emojis, so wiping the
+    // whole list is a deliberate action instead of an instant, unconfirmed clear.
+    @SuppressLint("ClickableViewAccessibility")
+    private void setupClearRecentsGesture(final ImageView tabView) {
+        tabView.setOnLongClickListener(v -> showClearRecentsConfirm(tabView));
+        tabView.setOnTouchListener((v, event) -> {
+            if (!mClearRecentsArmed) return false; // let the view handle press, tap and long-press detection
+            switch (event.getActionMasked()) {
+                case MotionEvent.ACTION_MOVE:
+                    updateClearRecentsHighlight(isOverClearRecentsButton(event));
+                    return true;
+                case MotionEvent.ACTION_UP:
+                    final boolean confirmed = isOverClearRecentsButton(event);
+                    dismissClearRecentsConfirm();
+                    if (confirmed) clearRecentKeys();
+                    return true;
+                case MotionEvent.ACTION_CANCEL:
+                    dismissClearRecentsConfirm();
+                    return true;
+                default:
+                    return true;
+            }
+        });
+    }
+
+    private boolean showClearRecentsConfirm(final View tabView) {
+        if (mClearRecentsArmed) return true;
+        if (getRecentsKeyboard().getSortedKeys().isEmpty()) return false; // nothing to clear
+        final Context context = getContext();
+        final ImageView button = new ImageView(context);
+        Drawable icon = KeyboardIconsSet.Companion.getInstance().getNewDrawable(KeyboardIconsSet.NAME_BIN, context);
+        if (icon == null) icon = ContextCompat.getDrawable(context, R.drawable.ic_bin);
+        button.setImageDrawable(icon);
+        button.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        button.setContentDescription(context.getString(R.string.clear_recent_emojis));
+        mColors.setColor(button, ColorType.KEY_ICON);
+        mColors.setBackground(button, ColorType.FUNCTIONAL_KEY_BACKGROUND);
+        final int size = Math.max(tabView.getWidth(), tabView.getHeight());
+        final int padding = Math.max(1, size / 5);
+        button.setPadding(padding, padding, padding, padding);
+
+        final PopupWindow popup = new PopupWindow(button, size, size);
+        popup.setClippingEnabled(false);
+        // Keep touch events flowing to the tab so we can track the release ourselves.
+        popup.setTouchable(false);
+        popup.setFocusable(false);
+        popup.setOutsideTouchable(false);
+
+        final int[] location = new int[2];
+        tabView.getLocationInWindow(location);
+        final int x = location[0] + (tabView.getWidth() - size) / 2;
+        int y = location[1] - size - padding;                        // above the tab
+        if (y < 0) y = location[1] + tabView.getHeight() + padding;   // fall back below if there is no room
+        popup.showAtLocation(tabView, Gravity.NO_GRAVITY, x, y);
+
+        mClearRecentsButton = button;
+        mClearRecentsPopup = popup;
+        mClearRecentsHighlighted = false;
+        mClearRecentsArmed = true;
+        if (tabView.getParent() != null) tabView.getParent().requestDisallowInterceptTouchEvent(true);
+        AudioAndHapticFeedbackManager.getInstance().performHapticAndAudioFeedback(KeyCode.NOT_SPECIFIED, this, HapticEvent.KEY_LONG_PRESS);
+        return true;
+    }
+
+    private boolean isOverClearRecentsButton(final MotionEvent event) {
+        final ImageView button = mClearRecentsButton;
+        if (button == null || !button.isShown()) return false;
+        final int[] location = new int[2];
+        button.getLocationOnScreen(location);
+        final float x = event.getRawX();
+        final float y = event.getRawY();
+        return x >= location[0] && x < location[0] + button.getWidth()
+                && y >= location[1] && y < location[1] + button.getHeight();
+    }
+
+    private void updateClearRecentsHighlight(final boolean over) {
+        if (mClearRecentsButton == null || over == mClearRecentsHighlighted) return;
+        mClearRecentsHighlighted = over;
+        mColors.setBackground(mClearRecentsButton, over ? ColorType.KEY_BACKGROUND : ColorType.FUNCTIONAL_KEY_BACKGROUND);
+    }
+
+    private void dismissClearRecentsConfirm() {
+        mClearRecentsArmed = false;
+        mClearRecentsHighlighted = false;
+        if (mClearRecentsPopup != null) {
+            mClearRecentsPopup.dismiss();
+            mClearRecentsPopup = null;
+        }
+        mClearRecentsButton = null;
+    }
+
     @Override
     public String getDescription(String emoji) {
         if (sDictionaryFacilitator == null) {
@@ -420,8 +520,15 @@ public final class EmojiPalettesView extends LinearLayout
     }
 
     public void stopEmojiPalettes() {
+        dismissClearRecentsConfirm();
         if (!initialized) return;
         getRecentsKeyboard().flushPendingRecentKeys();
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        dismissClearRecentsConfirm();
+        super.onDetachedFromWindow();
     }
 
     private DynamicGridKeyboard getRecentsKeyboard() {
