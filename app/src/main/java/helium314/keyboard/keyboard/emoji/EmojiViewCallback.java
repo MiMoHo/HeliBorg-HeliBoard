@@ -28,4 +28,7 @@ public interface EmojiViewCallback {
     String getDescription(String emoji);
 
     void onRemoveRecentsKey(Key key);
+
+    /** Clear the whole recents list (second key in the recents long-press popup). */
+    void onClearRecentsKeys();
 }

@@ -246,13 +246,8 @@ public final class EmojiPalettesView extends LinearLayout
         host.addView(iconView);
         iconView.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
         iconView.setOnClickListener(this);
-        if (category == EmojiCategory.Category.RECENTS) {
-            iconView.setOnLongClickListener(v -> {
-                AudioAndHapticFeedbackManager.getInstance().performHapticAndAudioFeedback(KeyCode.NOT_SPECIFIED, this, HapticEvent.KEY_LONG_PRESS);
-                clearRecentKeys();
-                return true;
-            });
-        }
+        // "Clear all recents" lives in the recents long-press popup (see EmojiPageKeyboardView),
+        // so the tab itself no longer has a destructive, unconfirmed long-press.
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -328,6 +323,14 @@ public final class EmojiPalettesView extends LinearLayout
     public void onRemoveRecentsKey(Key key)
     {
         getRecentsKeyboard().removeRecentsKey(key);
+    }
+
+    @Override
+    public void onClearRecentsKeys() {
+        AudioAndHapticFeedbackManager.getInstance().performHapticAndAudioFeedback(KeyCode.NOT_SPECIFIED, this, HapticEvent.KEY_LONG_PRESS);
+        clearRecentKeys();
+        if (initialized)
+            mPager.getAdapter().notifyItemChanged(mEmojiCategory.getRecentTabId());
     }
 
     private void clearRecentKeys() {

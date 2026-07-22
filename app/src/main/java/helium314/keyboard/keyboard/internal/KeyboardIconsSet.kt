@@ -80,6 +80,7 @@ class KeyboardIconsSet private constructor() {
         const val NAME_RESIZE_ONEHANDED_KEY = "resize_onehanded_key"
         const val NAME_TOOLBAR_KEY = "toolbar_key"
         const val NAME_BIN = "bin"
+        const val NAME_CLEAR_ALL = "clear_all"
 
         // names used in the past, and we can't just delete them because they might still be in use in some layouts
         // (also some of them are in use for internal layouts, but there we could just remove them...)
@@ -98,6 +99,7 @@ class KeyboardIconsSet private constructor() {
 
         // todo: incognito and force incognito should not be the same? or not the same as toolbar key?
         private val keyboardIconsHolo by lazy { hashMapOf(
+            NAME_CLEAR_ALL to                   R.drawable.sym_keyboard_clear_clipboard_holo,
             NAME_SHIFT_KEY to                   R.drawable.sym_keyboard_shift_holo,
             NAME_SHIFT_KEY_SHIFTED to           R.drawable.sym_keyboard_shifted_holo,
             NAME_SHIFT_KEY_LOCKED to            R.drawable.sym_keyboard_shift_lock_holo,
@@ -162,6 +164,7 @@ class KeyboardIconsSet private constructor() {
         } }
 
         private val keyboardIconsMaterial by lazy { hashMapOf(
+            NAME_CLEAR_ALL to                   R.drawable.sym_keyboard_clear_clipboard_lxx,
             NAME_SHIFT_KEY to                   R.drawable.sym_keyboard_shift_lxx,
             NAME_SHIFT_KEY_SHIFTED to           R.drawable.sym_keyboard_shift_lxx,
             NAME_SHIFT_KEY_LOCKED to            R.drawable.sym_keyboard_shift_lock_lxx,
@@ -226,6 +229,7 @@ class KeyboardIconsSet private constructor() {
         } }
 
         private val keyboardIconsRounded by lazy { hashMapOf(
+            NAME_CLEAR_ALL to                   R.drawable.sym_keyboard_clear_clipboard_rounded,
             NAME_SHIFT_KEY to                   R.drawable.sym_keyboard_shift_rounded,
             NAME_SHIFT_KEY_SHIFTED to           R.drawable.sym_keyboard_shift_rounded,
             NAME_SHIFT_KEY_LOCKED to            R.drawable.sym_keyboard_shift_lock_rounded,

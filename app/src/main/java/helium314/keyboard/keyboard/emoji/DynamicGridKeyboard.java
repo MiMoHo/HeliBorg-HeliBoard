@@ -312,9 +312,14 @@ final class DynamicGridKeyboard extends Keyboard {
         }
     }
 
-    // Single delete button shown when long-pressing a key in the recents category.
+    // Long-pressing a key in the recents category offers two delete actions:
+    // remove this single emoji, or clear the whole recents list.
     private static final PopupKeySpec[] REMOVE_RECENT_POPUP_KEYS = {
         new PopupKeySpec(KeyboardIconsSet.PREFIX_ICON + KeyboardIconsSet.NAME_BIN
+            + "|!code/" + KeyCode.UNSPECIFIED, false, Locale.ROOT),
+        // same UNSPECIFIED code as the single-remove key; the two are told apart by their icon
+        // (see EmojiPageKeyboardView) so no dedicated key code is needed
+        new PopupKeySpec(KeyboardIconsSet.PREFIX_ICON + KeyboardIconsSet.NAME_CLEAR_ALL
             + "|!code/" + KeyCode.UNSPECIFIED, false, Locale.ROOT)
     };
 

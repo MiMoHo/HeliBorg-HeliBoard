@@ -42,6 +42,7 @@ import helium314.keyboard.keyboard.internal.PopupKeySpec;
 import helium314.keyboard.latin.R;
 import helium314.keyboard.latin.common.CoordinateUtils;
 import helium314.keyboard.latin.settings.Settings;
+import helium314.keyboard.keyboard.internal.KeyboardIconsSet;
 import kotlin.Unit;
 
 import java.util.WeakHashMap;
@@ -68,6 +69,8 @@ public final class EmojiPageKeyboardView extends KeyboardView implements
         }
         @Override
         public void onRemoveRecentsKey(final Key key) {}
+        @Override
+        public void onClearRecentsKeys() {}
     };
 
     private EmojiViewCallback mEmojiViewCallback = EMPTY_EMOJI_VIEW_CALLBACK;
@@ -320,8 +323,10 @@ public final class EmojiPageKeyboardView extends KeyboardView implements
             (popupKeysPanel != null ? popupKeysPanel : descriptionPanel)
                 .showPopupKeysPanel(this, this, pointX, pointY,
                     (popupKey) -> {
-                        if (keyboard.isRecents()) mEmojiViewCallback.onRemoveRecentsKey(key);
-                        else mEmojiViewCallback.onReleaseKey(popupKey);
+                        if (keyboard.isRecents()) {
+                            if (KeyboardIconsSet.NAME_CLEAR_ALL.equals(popupKey.getIconName())) mEmojiViewCallback.onClearRecentsKeys();
+                            else mEmojiViewCallback.onRemoveRecentsKey(key);
+                        } else mEmojiViewCallback.onReleaseKey(popupKey);
                         return Unit.INSTANCE;
                     }
                 );

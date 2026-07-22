@@ -325,6 +325,8 @@ class EmojiSearchActivity : ComponentActivity() {
                 } else null
 
             override fun onRemoveRecentsKey(key: Key?) {}
+
+            override fun onClearRecentsKeys() {}
         })
         KeyboardSwitcher.getInstance().setAlphabetKeyboard(ShiftMode.UNSHIFT)
         Log.d(TAG, "init end")
