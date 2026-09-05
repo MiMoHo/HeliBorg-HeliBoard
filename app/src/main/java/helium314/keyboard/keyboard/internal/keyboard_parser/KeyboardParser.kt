@@ -37,9 +37,9 @@ import kotlin.math.roundToInt
 class KeyboardParser(private val params: KeyboardParams, private val context: Context) {
     private val defaultLabelFlags = when {
         params.mId.element.isAlphabet -> params.mLocaleKeyboardInfos.labelFlags
-        // reproduce the no-hints in symbol layouts
-        // todo: add setting? or put it in TextKeyData to happen only if no label flags specified explicitly?
-        params.mId.element.isAlphaOrSymbol -> Key.LABEL_FLAGS_DISABLE_HINT_LABEL
+        // symbol layouts have no hints by default; the setting opts into showing them
+        params.mId.element.isAlphaOrSymbol ->
+            if (Settings.getValues().mShowSymbolHints) 0 else Key.LABEL_FLAGS_DISABLE_HINT_LABEL
         else -> 0
     }
 

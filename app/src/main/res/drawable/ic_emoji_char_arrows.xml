@@ -1,0 +1,22 @@
+<!--
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:height="32dp"
+    android:width="32dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- four arrows: the arrow category -->
+    <path
+        android:fillColor="#FFF"
+        android:pathData="M12 2l4 4h-3v4h-2V6H8l4-4z"/>
+    <path
+        android:fillColor="#FFF"
+        android:pathData="M12 22l-4-4h3v-4h2v4h3l-4 4z"/>
+    <path
+        android:fillColor="#FFF"
+        android:pathData="M2 12l4-4v3h4v2H6v3l-4-4z"/>
+    <path
+        android:fillColor="#FFF"
+        android:pathData="M22 12l-4 4v-3h-4v-2h4V8l4 4z"/>
+</vector>

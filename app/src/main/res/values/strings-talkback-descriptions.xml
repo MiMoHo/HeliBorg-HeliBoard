@@ -134,6 +134,18 @@
     <string name="spoken_description_emoji_category_eight_activity">Activity</string>
     <!-- Description of the emoji category icon of Emoticons. -->
     <string name="spoken_description_emoji_category_emoticons">Emoticons</string>
+    <!-- Description of the emoji category icon of punctuation and standard symbols. -->
+    <string name="spoken_description_emoji_category_char_punctuation">Punctuation &amp; symbols</string>
+    <!-- Description of the emoji category icon of arrows. -->
+    <string name="spoken_description_emoji_category_char_arrows">Arrows</string>
+    <!-- Description of the emoji category icon of math symbols. -->
+    <string name="spoken_description_emoji_category_char_math">Math symbols</string>
+    <!-- Description of the emoji category icon of letters and numerals. -->
+    <string name="spoken_description_emoji_category_char_letters">Letters &amp; numerals</string>
+    <!-- Description of the tab that switches to the characters and symbols categories. -->
+    <string name="spoken_description_emoji_tab_page_chars">Characters &amp; symbols</string>
+    <!-- Description of the tab that switches back to the emoji categories. -->
+    <string name="spoken_description_emoji_tab_page_emojis">Emojis</string>
 
     <!-- Description of an upper case letter of LOWER_LETTER. -->
     <string name="spoken_description_upper_case">Capital <xliff:g id="LOWER_LETTER" example="A, E, ligature">%s</xliff:g></string>

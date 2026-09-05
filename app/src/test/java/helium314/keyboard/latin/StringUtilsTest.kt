@@ -201,7 +201,8 @@ class StringUtilsTest {
     @Test fun isEmojiDetectsAllAvailableEmojis() {
         val ctx = ApplicationProvider.getApplicationContext<App>()
         val allEmojis = ctx.assets.list("emoji")!!.flatMap {
-            if (it == "minApi.txt" || it == "EMOTICONS.txt") return@flatMap emptyList()
+            // EMOTICONS and the CHAR_* character categories hold plain text, not emojis
+            if (it == "minApi.txt" || it == "EMOTICONS.txt" || it.startsWith("CHAR_")) return@flatMap emptyList()
             ctx.assets.open("emoji/$it").reader().readLines()
         }.flatMap { it.splitOnWhitespace() }
 

@@ -140,6 +140,10 @@ private fun getEmojiFileName(category: KeyboardElement) = when (category) {
     KeyboardElement.EMOJI_SYMBOLS -> "SYMBOLS.txt"
     KeyboardElement.EMOJI_FLAGS -> "FLAGS.txt"
     KeyboardElement.EMOJI_EMOTICONS -> "EMOTICONS.txt"
+    KeyboardElement.EMOJI_CHAR_PUNCTUATION -> "CHAR_PUNCTUATION.txt"
+    KeyboardElement.EMOJI_CHAR_ARROWS -> "CHAR_ARROWS.txt"
+    KeyboardElement.EMOJI_CHAR_MATH -> "CHAR_MATH.txt"
+    KeyboardElement.EMOJI_CHAR_LETTERS -> "CHAR_LETTERS.txt"
     else -> null
 }
 

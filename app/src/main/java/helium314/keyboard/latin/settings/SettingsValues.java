@@ -74,6 +74,7 @@ public class SettingsValues {
     public final boolean mShowNumberRowHints;
     public final boolean mShowsHints;
     public final boolean mShowsPopupHints;
+    public final boolean mShowSymbolHints;
     public final boolean mShowTldPopupKeys;
     public final boolean mSpaceForLangChange;
     public final boolean mShowsEmojiKey;
@@ -210,6 +211,7 @@ public class SettingsValues {
         mShowNumberRowHints = prefs.getBoolean(Settings.PREF_SHOW_NUMBER_ROW_HINTS, Defaults.PREF_SHOW_NUMBER_ROW_HINTS);
         mShowsHints = prefs.getBoolean(Settings.PREF_SHOW_HINTS, Defaults.PREF_SHOW_HINTS);
         mShowsPopupHints = prefs.getBoolean(Settings.PREF_SHOW_POPUP_HINTS, Defaults.PREF_SHOW_POPUP_HINTS);
+        mShowSymbolHints = prefs.getBoolean(Settings.PREF_SHOW_SYMBOL_HINTS, Defaults.PREF_SHOW_SYMBOL_HINTS);
         mShowTldPopupKeys = prefs.getBoolean(Settings.PREF_SHOW_TLD_POPUP_KEYS, Defaults.PREF_SHOW_TLD_POPUP_KEYS);
         mSpaceForLangChange = prefs.getBoolean(Settings.PREF_SPACE_TO_CHANGE_LANG, Defaults.PREF_SPACE_TO_CHANGE_LANG);
         mShowsEmojiKey = prefs.getBoolean(Settings.PREF_SHOW_EMOJI_KEY, Defaults.PREF_SHOW_EMOJI_KEY);

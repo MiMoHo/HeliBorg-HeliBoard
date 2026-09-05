@@ -79,6 +79,10 @@
         <item name="iconEmojiSymbolsTab">@drawable/ic_emoji_symbols</item>
         <item name="iconEmojiFlagsTab">@drawable/ic_emoji_flags</item>
         <item name="iconEmojiEmoticonsTab">@drawable/ic_emoji_emoticons</item>
+        <item name="iconEmojiCharPunctuationTab">@drawable/ic_emoji_char_punctuation</item>
+        <item name="iconEmojiCharArrowsTab">@drawable/ic_emoji_char_arrows</item>
+        <item name="iconEmojiCharMathTab">@drawable/ic_emoji_char_math</item>
+        <item name="iconEmojiCharLettersTab">@drawable/ic_emoji_char_letters</item>
     </style>
     <style
             name="ClipboardHistoryView.HoloBase"

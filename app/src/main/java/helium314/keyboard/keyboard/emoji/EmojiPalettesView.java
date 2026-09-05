@@ -200,6 +200,8 @@ public final class EmojiPalettesView extends LinearLayout
     private KeyboardActionListener mKeyboardActionListener = KeyboardActionListener.EMPTY_LISTENER;
     private final EmojiCategory mEmojiCategory;
     private ViewPager2 mPager;
+    /** the tab page currently shown in the category strip; the trailing switch tab toggles it */
+    private EmojiCategory.TabPage mTabPage = EmojiCategory.TabPage.EMOJIS;
 
     public EmojiPalettesView(final Context context, final AttributeSet attrs) {
         this(context, attrs, R.attr.emojiPalettesViewStyle);
@@ -256,16 +258,57 @@ public final class EmojiPalettesView extends LinearLayout
         }
     }
 
+    /** trailing tab that switches between the emoji and the character/symbol tab page */
+    private void addTabPageSwitch(LinearLayout host, EmojiCategory.TabPage target) {
+        final ImageView iconView = new ImageView(getContext());
+        mColors.setBackground(iconView, ColorType.STRIP_BACKGROUND);
+        mColors.setColor(iconView, ColorType.EMOJI_CATEGORY);
+        iconView.setScaleType(ImageView.ScaleType.CENTER);
+        iconView.setImageResource(target == EmojiCategory.TabPage.CHARS
+                ? R.drawable.ic_emoji_tab_page_next
+                : R.drawable.ic_emoji_tab_page_previous);
+        iconView.setContentDescription(getContext().getString(target == EmojiCategory.TabPage.CHARS
+                ? R.string.spoken_description_emoji_tab_page_chars
+                : R.string.spoken_description_emoji_tab_page_emojis));
+        iconView.setTag(target);
+        host.addView(iconView);
+        iconView.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
+        iconView.setOnClickListener(this);
+    }
+
+    /** (re)builds the category strip for [mTabPage], keeping the trailing page switch in place */
+    private void buildTabStrip() {
+        if (mTabStrip == null || !Settings.getValues().isSecondaryStripVisible()) return;
+        mTabStrip.removeAllViews();
+        for (EmojiCategory.CategoryProperties properties : mEmojiCategory.categoriesOfTabPage(mTabPage)) {
+            addTab(mTabStrip, properties.getCategory());
+        }
+        addTabPageSwitch(mTabStrip, mTabPage == EmojiCategory.TabPage.EMOJIS
+                ? EmojiCategory.TabPage.CHARS
+                : EmojiCategory.TabPage.EMOJIS);
+        highlightCurrentCategoryTab();
+    }
+
+    /** applies the selected color to the tab of the current category, if it is on the shown page */
+    private void highlightCurrentCategoryTab() {
+        if (mTabStrip == null || !Settings.getValues().isSecondaryStripVisible()) return;
+        for (int i = 0; i < mTabStrip.getChildCount(); i++) {
+            View child = mTabStrip.getChildAt(i);
+            if (child instanceof ImageView && child.getTag() instanceof EmojiCategory.Category) {
+                mColors.setColor((ImageView) child, child.getTag() == mEmojiCategory.getCurrentCategory()
+                        ? ColorType.EMOJI_CATEGORY_SELECTED
+                        : ColorType.EMOJI_CATEGORY);
+            }
+        }
+    }
+
     @SuppressLint("ClickableViewAccessibility")
     public void initialize() { // needs to be delayed for access to EmojiTabStrip, which is not a child of this view
         if (initialized) return;
         mEmojiCategory.initialize();
         mTabStrip = (LinearLayout) KeyboardSwitcher.getInstance().getEmojiTabStrip();
-        if (Settings.getValues().isSecondaryStripVisible()) {
-            for (EmojiCategory.CategoryProperties properties : mEmojiCategory.getShownCategories()) {
-                addTab(mTabStrip, properties.getCategory());
-            }
-        }
+        mTabPage = mEmojiCategory.tabPageOf(mEmojiCategory.getCurrentCategory());
+        buildTabStrip();
 
         mPager = findViewById(R.id.emoji_pager);
         mPager.setAdapter(new PagerAdapter(mPager));
@@ -285,6 +328,15 @@ public final class EmojiPalettesView extends LinearLayout
     @Override
     public void onClick(View v) {
         final Object tag = v.getTag();
+        if (tag instanceof EmojiCategory.TabPage page) {
+            AudioAndHapticFeedbackManager.getInstance().performHapticAndAudioFeedback(KeyCode.NOT_SPECIFIED, this, HapticEvent.KEY_PRESS);
+            mTabPage = page;
+            buildTabStrip();
+            // jump to the first category of the newly shown page so the content matches the tabs
+            setCurrentCategory(mEmojiCategory.firstCategoryOf(page), false);
+            updateEmojiCategoryPageIdView();
+            return;
+        }
         if (tag instanceof EmojiCategory.Category category) {
             AudioAndHapticFeedbackManager.getInstance().performHapticAndAudioFeedback(KeyCode.NOT_SPECIFIED, this, HapticEvent.KEY_PRESS);
             if (category != mEmojiCategory.getCurrentCategory()) {
@@ -453,13 +505,14 @@ public final class EmojiPalettesView extends LinearLayout
             }
 
             if (Settings.getValues().isSecondaryStripVisible()) {
-                View old = mTabStrip.findViewWithTag(oldCategory);
-                View current = mTabStrip.findViewWithTag(category);
-
-                if (old instanceof ImageView)
-                    Settings.getValues().mColors.setColor((ImageView) old, ColorType.EMOJI_CATEGORY);
-                if (current instanceof ImageView)
-                    Settings.getValues().mColors.setColor((ImageView) current, ColorType.EMOJI_CATEGORY_SELECTED);
+                // swiping the pager can cross the page boundary, so follow it with the tab strip
+                EmojiCategory.TabPage page = mEmojiCategory.tabPageOf(category);
+                if (page != mTabPage) {
+                    mTabPage = page;
+                    buildTabStrip();
+                } else {
+                    highlightCurrentCategoryTab();
+                }
             }
         }
     }

@@ -40,7 +40,8 @@ internal class EmojiCategory(private val context: Context, private val layoutSet
         emojiPaletteViewAttr.getResourceId(Category.entries[i].iconAttr, 0)
     }
 
-    val shownCategories = listOfNotNull(
+    /** categories of the first tab page: the emoji ones. The trailing tab switches to [charCategories]. */
+    private val emojiCategories = listOfNotNull(
         CategoryProperties(Category.RECENTS),
         CategoryProperties(Category.SMILEYS),
         CategoryProperties(Category.PEOPLE),
@@ -50,9 +51,30 @@ internal class EmojiCategory(private val context: Context, private val layoutSet
         CategoryProperties(Category.ACTIVITIES),
         CategoryProperties(Category.OBJECTS),
         CategoryProperties(Category.SYMBOLS),
-        if (canShowFlagEmoji()) CategoryProperties(Category.FLAGS) else null,
+        if (canShowFlagEmoji()) CategoryProperties(Category.FLAGS) else null
+    )
+
+    /** categories of the second tab page: characters and standard symbols, plus the text emoticons */
+    private val charCategories = listOf(
+        CategoryProperties(Category.CHAR_PUNCTUATION),
+        CategoryProperties(Category.CHAR_ARROWS),
+        CategoryProperties(Category.CHAR_MATH),
+        CategoryProperties(Category.CHAR_LETTERS),
         CategoryProperties(Category.EMOTICONS)
     )
+
+    /** all categories, in pager order: emoji page first, then the character page */
+    val shownCategories = emojiCategories + charCategories
+
+    /** the tab page a category belongs to */
+    fun tabPageOf(category: Category) =
+        if (charCategories.any { it.category == category }) TabPage.CHARS else TabPage.EMOJIS
+
+    fun categoriesOfTabPage(page: TabPage) =
+        if (page == TabPage.CHARS) charCategories else emojiCategories
+
+    /** first category of [page], used when switching pages via the trailing switch tab */
+    fun firstCategoryOf(page: TabPage) = categoriesOfTabPage(page).first().category
 
     private val categoryKeyboardMap = ConcurrentHashMap<Long, DynamicGridKeyboard>()
 
@@ -193,8 +215,15 @@ internal class EmojiCategory(private val context: Context, private val layoutSet
         OBJECTS(KeyboardElement.EMOJI_OBJECTS, R.styleable.EmojiPalettesView_iconEmojiObjectsTab),
         SYMBOLS(KeyboardElement.EMOJI_SYMBOLS, R.styleable.EmojiPalettesView_iconEmojiSymbolsTab),
         FLAGS(KeyboardElement.EMOJI_FLAGS, R.styleable.EmojiPalettesView_iconEmojiFlagsTab),
-        EMOTICONS(KeyboardElement.EMOJI_EMOTICONS, R.styleable.EmojiPalettesView_iconEmojiEmoticonsTab)
+        EMOTICONS(KeyboardElement.EMOJI_EMOTICONS, R.styleable.EmojiPalettesView_iconEmojiEmoticonsTab),
+        CHAR_PUNCTUATION(KeyboardElement.EMOJI_CHAR_PUNCTUATION, R.styleable.EmojiPalettesView_iconEmojiCharPunctuationTab),
+        CHAR_ARROWS(KeyboardElement.EMOJI_CHAR_ARROWS, R.styleable.EmojiPalettesView_iconEmojiCharArrowsTab),
+        CHAR_MATH(KeyboardElement.EMOJI_CHAR_MATH, R.styleable.EmojiPalettesView_iconEmojiCharMathTab),
+        CHAR_LETTERS(KeyboardElement.EMOJI_CHAR_LETTERS, R.styleable.EmojiPalettesView_iconEmojiCharLettersTab)
     }
+
+    /** the two pages of the category tab strip */
+    enum class TabPage { EMOJIS, CHARS }
 
     companion object {
         private val TAG = EmojiCategory::class.java.simpleName
