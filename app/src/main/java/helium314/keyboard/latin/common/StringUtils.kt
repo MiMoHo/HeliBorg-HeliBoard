@@ -245,11 +245,8 @@ fun mightBeEmoji(text: CharSequence): Boolean {
 
 fun isEmoji(c: Int): Boolean = mightBeEmoji(c) && isEmoji(newSingleCodePointString(c))
 
-/** returns whether the text is a single emoji */
-// the standalone regional indicator check comes first because the RGI-based singleEmojiRegex only
-// matches indicator pairs (country flags), so the second clause can't recognise the standalone
-// indicator letters that the flags category also offers
-fun isEmoji(text: CharSequence): Boolean = text.isSingleRegionalIndicator
+/** returns whether the text is a single emoji or a single regional indicator */
+fun isEmoji(text: CharSequence): Boolean = text.isSingleRegionalIndicator // not recognized by singleEmojiRegex
         || (text.toString().isSingleGrapheme && mightBeEmoji(text) && text.matches(singleEmojiRegex))
 
 private val CharSequence.isSingleRegionalIndicator: Boolean
