@@ -275,6 +275,10 @@
     <string name="shift_removes_autospace">No autospace when pressing shift</string>
     <!-- Description for "autospace_after_punctuation" setting -->
     <string name="shift_removes_autospace_summary">Shift removes pending autospace</string>
+    <!-- Title of the setting to wrap a selection in quotes or brackets instead of replacing it -->
+    <string name="wrap_selection">Quotes and brackets enclose selection</string>
+    <!-- Description of the wrap_selection setting -->
+    <string name="wrap_selection_summary">Typing a quote or bracket while text is selected puts it around the selection instead of replacing it</string>
     <!-- Preferences item for showing popup keys in long-press popup -->
     <string name="show_popup_keys_title">Show more letters with diacritics in popup</string>
     <!-- Option for showing only letters defined in the current language file in long-press popup -->
