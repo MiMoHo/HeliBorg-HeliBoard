@@ -281,8 +281,13 @@ public final class PopupKeysKeyboard extends Keyboard {
                 // left/right/top paddings. The bottom paddings of both backgrounds don't need to
                 // be considered because the vertical positions of both backgrounds were already
                 // adjusted with their bottom paddings deducted.
-                keyWidth = keyPreviewVisibleWidth;
-                rowHeight = keyPreviewVisibleHeight + mParams.mVerticalGap;
+                // The preview is sized around its label, so at small font scales it is smaller
+                // than an ordinary cell - which left keys carrying a single popup ("g", "k")
+                // noticeably smaller than keys carrying several ("a", "n"): 70x87 against
+                // 108x161 at 50 %. Never go below the size the other popups use.
+                keyWidth = Math.max(keyPreviewVisibleWidth, mParams.mAbsolutePopupKeyWidth);
+                rowHeight = Math.max(keyPreviewVisibleHeight + mParams.mVerticalGap,
+                        keyboard.mMostCommonKeyHeight);
             } else {
                 final float padding = context.getResources().getDimension(
                         R.dimen.config_popup_keys_keyboard_key_horizontal_padding)

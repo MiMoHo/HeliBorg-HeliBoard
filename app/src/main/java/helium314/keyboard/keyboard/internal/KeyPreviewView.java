@@ -7,6 +7,7 @@
 package helium314.keyboard.keyboard.internal;
 
 import android.content.Context;
+import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.text.TextPaint;
@@ -33,6 +34,14 @@ public class KeyPreviewView extends TextView {
 
     private final Rect mBackgroundPadding = new Rect();
     private static final HashSet<String> sNoScaleXTextSet = new HashSet<>();
+    /**
+     * How much taller than the key its preview may get. The preview is meant to be a slightly
+     * enlarged copy of the key, which is what upstream produces at the default font scale.
+     */
+    private static final float MAX_HEIGHT_RATIO = 1.1f;
+    /** Size of the key this preview stands for; the preview is meant to look like an enlarged copy of it. */
+    private int mKeyWidth;
+    private int mKeyHeight;
 
     public KeyPreviewView(final Context context, final AttributeSet attrs) {
         this(context, attrs, 0);
@@ -44,6 +53,8 @@ public class KeyPreviewView extends TextView {
     }
 
     public void setPreviewVisual(final Key key, final KeyboardIconsSet iconsSet, final KeyDrawParams drawParams) {
+        mKeyWidth = key.getDrawWidth();
+        mKeyHeight = key.getHeight();
         // What we show as preview should match what we show on a key top in onDraw().
         if (key.getIconName() != null) {
             setCompoundDrawables(key.getPreviewIcon(iconsSet), null, null, null);
@@ -53,21 +64,54 @@ public class KeyPreviewView extends TextView {
 
         setCompoundDrawables(null, null, null, null);
         setTextColor(drawParams.mPreviewTextColor);
-        setTextSize(TypedValue.COMPLEX_UNIT_PX, key.selectPreviewTextSize(drawParams)
+        setPreviewTextSize(key.selectPreviewTextSize(drawParams)
                 * Settings.getValues().mFontSizeMultiplier);
         KeyboardTypeface.applyToTextView(this, key.getPreviewLabel(), key.selectPreviewTypeface(drawParams));
         // TODO Should take care of temporaryShiftLabel here.
         setTextAndScaleX(key.getPreviewLabel());
+        applyKeyProportions();
+    }
+
+    /**
+     * The font scale multiplies the preview's text size, but the key it stands for does not grow
+     * with it - so at 150 % the preview ends up 1.6 times the size of its own key instead of the
+     * slightly enlarged copy it is meant to be. The key itself limits its label the same way (see
+     * MAX_LABEL_RATIO in KeyboardView); the preview simply never did.
+     */
+    private void setPreviewTextSize(final float wantedSize) {
+        setTextSize(TypedValue.COMPLEX_UNIT_PX, wantedSize);
+        if (mKeyHeight <= 0) {
+            return;
+        }
+        final Paint.FontMetrics metrics = getPaint().getFontMetrics();
+        final float labelHeight = metrics.bottom - metrics.top;
+        final float maxHeight = mKeyHeight * MAX_HEIGHT_RATIO;
+        if (labelHeight > maxHeight) {
+            setTextSize(TypedValue.COMPLEX_UNIT_PX, wantedSize * maxHeight / labelHeight);
+        }
+    }
+
+    /**
+     * The preview stands for an enlarged key, but its width comes from a fixed size declared in
+     * the background drawable while its height follows the label - so the larger the font scale,
+     * the narrower the preview gets: measured 70x226 visible at 150 % for a key of 96x138. Ask
+     * for a width that gives the visible part the key's proportions. The height is never touched:
+     * limiting it would crop the very glyph the preview exists to show.
+     */
+    private void applyKeyProportions() {
+        if (mKeyWidth <= 0 || mKeyHeight <= 0) {
+            setMinWidth(0);
+            return;
+        }
+        final Paint.FontMetrics metrics = getPaint().getFontMetrics();
+        final int labelHeight = (int) (metrics.bottom - metrics.top);
+        setMinWidth(labelHeight * mKeyWidth / mKeyHeight + getPaddingLeft() + getPaddingRight());
     }
 
     private void setTextAndScaleX(final String text) {
         setTextScaleX(1.0f);
         setText(text);
-        if (sNoScaleXTextSet.contains(text)) {
-            return;
-        }
         if (StringUtilsKt.isEmoji(text)) {
-            sNoScaleXTextSet.add(text);
             return;
         }
         // TODO: Override {@link #setBackground(Drawable)} that is supported from API 16 and
@@ -77,11 +121,18 @@ public class KeyPreviewView extends TextView {
             return;
         }
         background.getPadding(mBackgroundPadding);
-        final int maxWidth = background.getIntrinsicWidth() - mBackgroundPadding.left
+        // The drawable declares a fixed width, which at large font scales is narrower than the
+        // label: the glyph then gets squeezed horizontally until only a stroke of it is left.
+        // The preview may grow as wide as the key's proportions allow, so measure against that.
+        int maxWidth = background.getIntrinsicWidth() - mBackgroundPadding.left
                 - mBackgroundPadding.right;
+        if (mKeyWidth > 0 && mKeyHeight > 0) {
+            final Paint.FontMetrics metrics = getPaint().getFontMetrics();
+            final int labelHeight = (int) (metrics.bottom - metrics.top);
+            maxWidth = Math.max(maxWidth, labelHeight * mKeyWidth / mKeyHeight);
+        }
         final float width = getTextWidth(text, getPaint());
         if (width <= maxWidth) {
-            sNoScaleXTextSet.add(text);
             return;
         }
         setTextScaleX(maxWidth / width);
