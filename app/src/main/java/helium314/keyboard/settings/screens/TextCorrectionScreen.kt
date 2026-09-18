@@ -76,6 +76,7 @@ fun TextCorrectionScreen(
         if (gestureEnabled) Settings.PREF_AUTOSPACE_BEFORE_GESTURE_TYPING else null,
         if (gestureEnabled) Settings.PREF_AUTOSPACE_AFTER_GESTURE_TYPING else null,
         Settings.PREF_SHIFT_REMOVES_AUTOSPACE,
+        Settings.PREF_WRAP_SELECTION,
         R.string.settings_category_suggestions,
         if (suggestionsVisible) Settings.PREF_SHOW_SUGGESTIONS else null,
         if (suggestionsEnabled) Settings.PREF_ALWAYS_SHOW_SUGGESTIONS else null,
@@ -178,6 +179,9 @@ fun createCorrectionSettings(context: Context) = listOf(
     },
     Setting(context, Settings.PREF_AUTOSPACE_BEFORE_GESTURE_TYPING, R.string.autospace_before_gesture_typing) {
         SwitchPreference(it, Defaults.PREF_AUTOSPACE_BEFORE_GESTURE_TYPING)
+    },
+    Setting(context, Settings.PREF_WRAP_SELECTION, R.string.wrap_selection, R.string.wrap_selection_summary) {
+        SwitchPreference(it, Defaults.PREF_WRAP_SELECTION)
     },
     Setting(context, Settings.PREF_SHIFT_REMOVES_AUTOSPACE, R.string.shift_removes_autospace, R.string.shift_removes_autospace_summary) {
         SwitchPreference(it, Defaults.PREF_SHIFT_REMOVES_AUTOSPACE)

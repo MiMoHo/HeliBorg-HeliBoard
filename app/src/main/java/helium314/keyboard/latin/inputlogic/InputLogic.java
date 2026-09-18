@@ -974,7 +974,7 @@ public final class InputLogic {
         final SettingsValues sv = inputTransaction.getSettingsValues();
 
         // wrap / unwrap selected text in codepoint pairs
-        if (!mWordComposer.isComposingWord() && mConnection.hasSelection()) { // we should never be composing when something is selected
+        if (sv.mWrapSelection && !mWordComposer.isComposingWord() && mConnection.hasSelection()) { // we should never be composing when something is selected
             final int pairedCodepoint = sv.mSpacingAndPunctuations.getSecondInSymbolPair(codePoint);
             if (pairedCodepoint != Constants.NOT_A_CODE) {
                 wrapSelection(codePoint, pairedCodepoint);

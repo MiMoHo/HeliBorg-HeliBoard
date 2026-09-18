@@ -546,4 +546,6 @@
     <string name="gesture_data_add_key">Symbolleisten-Taste hinzufügen</string>
     <string name="gesture_data_no_known_dict">Die Hintergrund-Erfassung sammelt nur Wörter aus Wörterbüchern, die integriert oder im &lt;a href=%s&gt;Wörterbuch-Repository&lt;/a&gt; verfügbar sind. Derzeit hast du kein solches Wörterbuch aktiviert.</string>
     <string name="gesture_data_swipe_o_scope">Werkzeug zur Visualisierung von Gestendaten: &lt;a href=%s&gt;Swipe-O-Scope&lt;/a&gt;</string>
+    <string name="wrap_selection">Anführungszeichen und Klammern umschließen Auswahl</string>
+    <string name="wrap_selection_summary">Ein Anführungszeichen oder eine Klammer setzt sich bei markiertem Text darum herum, statt ihn zu ersetzen</string>
 </resources>
