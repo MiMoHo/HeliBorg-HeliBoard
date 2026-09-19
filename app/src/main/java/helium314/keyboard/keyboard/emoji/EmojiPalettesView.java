@@ -175,11 +175,18 @@ public final class EmojiPalettesView extends LinearLayout
             final int offset = recyclerView.computeVerticalScrollOffset();
             final int extent = recyclerView.computeVerticalScrollExtent();
             final int range = recyclerView.computeVerticalScrollRange();
-            final float percentage = offset / (float) (range - extent);
+            final int scrollable = range - extent;
+            // how far through the scrollable part we are: 0 at the top, 1 at the very bottom
+            final float percentage = scrollable > 0
+                    ? Math.min(1.0f, Math.max(0.0f, offset / (float) scrollable)) : 0.0f;
 
             final int currentCategorySize = mEmojiCategory.getCurrentCategoryPageCount();
-            final int a = (int) (percentage * currentCategorySize);
-            final float b = percentage * currentCategorySize - a;
+            // The bar is one unit wide, so it travels over the remaining size - 1 units. Spreading
+            // the progress over the full size instead made it reach the right edge while a whole
+            // page was still left to scroll, and sit there for the rest of the way.
+            final float position = percentage * (currentCategorySize - 1);
+            final int a = (int) position;
+            final float b = position - a;
             mEmojiCategoryPageIndicatorView.setCategoryPageId(currentCategorySize, a, b);
 
             LinearLayoutManager layoutManager = (LinearLayoutManager) recyclerView.getLayoutManager();
