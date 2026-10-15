@@ -136,6 +136,14 @@ class SubSettingTest {
         ))
     }
 
+    // switching back after a clipboard history entry only has an effect when the history can be opened
+    @Test fun advancedWithoutClipboardHistory() {
+        prefs.edit { putBoolean(Settings.PREF_ENABLE_CLIPBOARD_HISTORY, false) }
+        assertTrue(Settings.PREF_ABC_AFTER_CLIP !in advancedItems(prefs))
+        prefs.edit { putBoolean(Settings.PREF_ENABLE_CLIPBOARD_HISTORY, true) }
+        assertTrue(Settings.PREF_ABC_AFTER_CLIP in advancedItems(prefs))
+    }
+
     @Test fun gestureTyping() {
         prefs.edit {
             putBoolean(Settings.PREF_GESTURE_INPUT, true)
