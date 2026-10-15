@@ -2,6 +2,8 @@
 package helium314.keyboard.settings.screens
 
 import android.annotation.SuppressLint
+import android.content.SharedPreferences
+import androidx.annotation.StringRes
 import android.content.Context
 import android.os.Build
 import androidx.compose.material3.Surface
@@ -40,6 +42,7 @@ import helium314.keyboard.settings.SettingsDestination
 import helium314.keyboard.settings.preferences.SliderPreference
 import helium314.keyboard.settings.preferences.SwitchPreference
 import helium314.keyboard.latin.utils.Theme
+import helium314.keyboard.settings.dialogs.MultiListPickerDialog
 import helium314.keyboard.settings.dialogs.TextInputDialog
 import helium314.keyboard.settings.preferences.BackupRestorePreference
 import helium314.keyboard.settings.preferences.LoadGestureLibPreference
@@ -75,10 +78,7 @@ fun AdvancedSettingsScreen(
         Settings.PREFS_LONG_PRESS_SYMBOLS_FOR_NUMPAD,
         Settings.PREF_ENABLE_EMOJI_ALT_PHYSICAL_KEY,
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) Settings.PREF_SHOW_SETUP_WIZARD_ICON else null,
-        Settings.PREF_ABC_AFTER_SYMBOL_SPACE,
-        Settings.PREF_ABC_AFTER_NUMPAD_SPACE,
-        Settings.PREF_ABC_AFTER_EMOJI,
-        Settings.PREF_ABC_AFTER_CLIP,
+        SettingsWithoutKey.SWITCH_KEYBOARD_AFTER,
         Settings.PREF_CUSTOM_CURRENCY_KEY,
         Settings.PREF_MORE_POPUP_KEYS,
         Settings.PREF_TIMESTAMP_FORMAT,
@@ -178,21 +178,25 @@ fun createAdvancedSettings(context: Context) = listOf(
         val ctx = LocalContext.current
         SwitchPreference(it, Defaults.PREF_SHOW_SETUP_WIZARD_ICON) { SystemBroadcastReceiver.toggleAppIcon(ctx) }
     },
-    Setting(context, Settings.PREF_ABC_AFTER_SYMBOL_SPACE,
-        R.string.switch_keyboard_after, R.string.after_symbol_and_space)
-    {
-        SwitchPreference(it, Defaults.PREF_ABC_AFTER_SYMBOL_SPACE)
-    },
-    Setting(context, Settings.PREF_ABC_AFTER_NUMPAD_SPACE,
-        R.string.switch_keyboard_after, R.string.after_numpad_and_space)
-    {
-        SwitchPreference(it, Defaults.PREF_ABC_AFTER_NUMPAD_SPACE)
-    },
-    Setting(context, Settings.PREF_ABC_AFTER_EMOJI, R.string.switch_keyboard_after, R.string.after_emoji) {
-        SwitchPreference(it, Defaults.PREF_ABC_AFTER_EMOJI)
-    },
-    Setting(context, Settings.PREF_ABC_AFTER_CLIP, R.string.switch_keyboard_after, R.string.after_clip) {
-        SwitchPreference(it, Defaults.PREF_ABC_AFTER_EMOJI)
+    Setting(context, SettingsWithoutKey.SWITCH_KEYBOARD_AFTER, R.string.switch_keyboard_after) { setting ->
+        val prefs = LocalContext.current.prefs()
+        var showDialog by rememberSaveable { mutableStateOf(false) }
+        val options = switchKeyboardAfterOptions(prefs)
+        val selected = readSwitchKeyboardAfter(prefs, options)
+        Preference(
+            name = setting.title,
+            description = selected.map { stringResource(switchKeyboardAfterShortName(it)) }.joinToString(", ").ifEmpty { null },
+            onClick = { showDialog = true },
+        )
+        if (showDialog)
+            MultiListPickerDialog(
+                onDismissRequest = { showDialog = false },
+                items = options,
+                onConfirmed = { writeSwitchKeyboardAfter(prefs, options, it) },
+                title = { Text(setting.title) },
+                initialSelection = selected,
+                getItemName = { stringResource(switchKeyboardAfterName(it)) },
+            )
     },
     Setting(context, Settings.PREF_CUSTOM_CURRENCY_KEY, R.string.customize_currencies) { setting ->
         var showDialog by rememberSaveable { mutableStateOf(false) }
@@ -291,4 +295,44 @@ private fun Preview() {
             AdvancedSettingsScreen { }
         }
     }
+}
+
+/** Switches combined in "Switch to main keyboard after…". The clipboard history entry is only offered
+ *  while clipboard history is enabled, as the history view can't be opened otherwise. */
+fun switchKeyboardAfterOptions(prefs: SharedPreferences): List<String> = listOfNotNull(
+    Settings.PREF_ABC_AFTER_SYMBOL_SPACE,
+    Settings.PREF_ABC_AFTER_NUMPAD_SPACE,
+    Settings.PREF_ABC_AFTER_EMOJI,
+    if (prefs.getBoolean(Settings.PREF_ENABLE_CLIPBOARD_HISTORY, Defaults.PREF_ENABLE_CLIPBOARD_HISTORY))
+        Settings.PREF_ABC_AFTER_CLIP else null,
+)
+
+fun readSwitchKeyboardAfter(prefs: SharedPreferences, options: List<String>): List<String> =
+    options.filter { prefs.getBoolean(it, switchKeyboardAfterDefault(it)) }
+
+/** Writes all offered switches, so a hidden one keeps its value. */
+fun writeSwitchKeyboardAfter(prefs: SharedPreferences, options: List<String>, selected: Collection<String>) =
+    prefs.edit { options.forEach { putBoolean(it, it in selected) } }
+
+private fun switchKeyboardAfterDefault(key: String) = when (key) {
+    Settings.PREF_ABC_AFTER_SYMBOL_SPACE -> Defaults.PREF_ABC_AFTER_SYMBOL_SPACE
+    Settings.PREF_ABC_AFTER_NUMPAD_SPACE -> Defaults.PREF_ABC_AFTER_NUMPAD_SPACE
+    Settings.PREF_ABC_AFTER_EMOJI -> Defaults.PREF_ABC_AFTER_EMOJI
+    else -> Defaults.PREF_ABC_AFTER_CLIP
+}
+
+@StringRes
+private fun switchKeyboardAfterName(key: String) = when (key) {
+    Settings.PREF_ABC_AFTER_SYMBOL_SPACE -> R.string.after_symbol_and_space
+    Settings.PREF_ABC_AFTER_NUMPAD_SPACE -> R.string.after_numpad_and_space
+    Settings.PREF_ABC_AFTER_EMOJI -> R.string.after_emoji
+    else -> R.string.after_clip
+}
+
+// short names for the summary, the dialog shows the full explanation
+private fun switchKeyboardAfterShortName(key: String) = when (key) {
+    Settings.PREF_ABC_AFTER_SYMBOL_SPACE -> R.string.layout_symbols
+    Settings.PREF_ABC_AFTER_NUMPAD_SPACE -> R.string.layout_numpad
+    Settings.PREF_ABC_AFTER_EMOJI -> R.string.emoji
+    else -> R.string.clipboard
 }
