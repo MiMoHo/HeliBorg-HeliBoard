@@ -292,16 +292,22 @@ class InputLogicTest {
         chainInput("bla.c")
         assertEquals("bla.c", text)
         assertEquals("bla.c", composingText)
-        reset()
-        latinIME.prefs().edit { putBoolean(Settings.PREF_URL_DETECTION, true) }
+    }
+
+    // shift only changes the case, a pending autospace stays (see #1348)
+    @Test fun shiftKeepsPhantomSpace() {
         latinIME.prefs().edit { putBoolean(Settings.PREF_AUTOSPACE_AFTER_PUNCTUATION, true) }
-        latinIME.prefs().edit { putBoolean(Settings.PREF_SHIFT_REMOVES_AUTOSPACE, true) }
         input("bla")
         input('.')
-        functionalKeyPress(KeyCode.SHIFT) // should remove the phantom space (in addition to normal effect)
-        input('c')
-        assertEquals("bla.c", text)
-        assertEquals("bla.c", composingText)
+        functionalKeyPress(KeyCode.SHIFT)
+        input('C')
+        assertEquals("bla. C", text)
+        reset()
+        input("titl")
+        pickSuggestion("title")
+        functionalKeyPress(KeyCode.SHIFT)
+        input('S')
+        assertEquals("title S", text)
     }
 
     @Test fun stripSeparatorsBeforeAddingToHistoryWithURLDetection() {
