@@ -60,7 +60,7 @@ fun <T: Any> MultiListPickerDialog(
                                 .clickable {
                                     selected = if (item in selected) selected - item else selected + item
                                 }
-                                .padding(horizontal = 16.dp)
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
                                 .heightIn(min = 40.dp)
                         ) {
                             Text(
