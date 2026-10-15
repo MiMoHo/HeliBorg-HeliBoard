@@ -2,6 +2,7 @@
 package helium314.keyboard.settings.screens
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -23,6 +24,7 @@ import helium314.keyboard.latin.utils.getActivity
 import helium314.keyboard.latin.utils.getStringResourceOrName
 import helium314.keyboard.latin.utils.prefs
 import helium314.keyboard.settings.SearchSettingsScreen
+import helium314.keyboard.settings.SubSetting
 import helium314.keyboard.settings.Setting
 import helium314.keyboard.settings.SettingsActivity
 import helium314.keyboard.latin.utils.Theme
@@ -42,33 +44,36 @@ fun ToolbarScreen(
     val b = (LocalContext.current.getActivity() as? SettingsActivity)?.prefChanged?.collectAsState()
     if ((b?.value ?: 0) < 0)
         Log.v("irrelevant", "stupid way to trigger recomposition on preference change")
-    val toolbarMode = Settings.readToolbarMode(prefs)
-    val clipboardToolbarVisible = toolbarMode != ToolbarMode.HIDDEN
-        || !prefs.getBoolean(Settings.PREF_TOOLBAR_HIDING_GLOBAL, Defaults.PREF_TOOLBAR_HIDING_GLOBAL)
-    val items = listOf(
-        Settings.PREF_TOOLBAR_MODE,
-        if (toolbarMode == ToolbarMode.HIDDEN) Settings.PREF_TOOLBAR_HIDING_GLOBAL else null,
-        if (toolbarMode != ToolbarMode.HIDDEN) Settings.PREF_TOOLBAR_SWIPE_DOWN_TO_HIDE else null,
-        when (toolbarMode) {
-             ToolbarMode.EXPANDABLE, ToolbarMode.TOOLBAR_KEYS -> Settings.PREF_TOOLBAR_KEYS
-             else -> null
-        },
-        when (toolbarMode) {
-            ToolbarMode.EXPANDABLE, ToolbarMode.SUGGESTION_STRIP -> Settings.PREF_PINNED_TOOLBAR_KEYS
-            else -> null
-        },
-        if (clipboardToolbarVisible) Settings.PREF_CLIPBOARD_TOOLBAR_KEYS else null,
-        if (clipboardToolbarVisible) Settings.PREF_TOOLBAR_CUSTOM_KEY_CODES else null,
-        if (toolbarMode == ToolbarMode.EXPANDABLE) Settings.PREF_QUICK_PIN_TOOLBAR_KEYS else null,
-        if (toolbarMode == ToolbarMode.EXPANDABLE) Settings.PREF_AUTO_SHOW_TOOLBAR else null,
-        if (toolbarMode == ToolbarMode.EXPANDABLE) Settings.PREF_AUTO_HIDE_TOOLBAR else null,
-        if (toolbarMode != ToolbarMode.HIDDEN) Settings.PREF_SHOW_ONLY_TOOLBAR_WITH_HARDWARE_KEYBOARD else null,
-        if (toolbarMode != ToolbarMode.HIDDEN) Settings.PREF_VARIABLE_TOOLBAR_DIRECTION else null,
-    )
     SearchSettingsScreen(
         onClickBack = onClickBack,
         title = stringResource(R.string.settings_screen_toolbar),
-        settings = items
+        settings = toolbarItems(prefs)
+    )
+}
+
+fun toolbarItems(prefs: SharedPreferences): List<Any?> {
+    val toolbarMode = Settings.readToolbarMode(prefs)
+    val clipboardToolbarVisible = toolbarMode != ToolbarMode.HIDDEN
+        || !prefs.getBoolean(Settings.PREF_TOOLBAR_HIDING_GLOBAL, Defaults.PREF_TOOLBAR_HIDING_GLOBAL)
+    return listOf(
+        Settings.PREF_TOOLBAR_MODE,
+        if (toolbarMode == ToolbarMode.HIDDEN) SubSetting(Settings.PREF_TOOLBAR_HIDING_GLOBAL) else null,
+        if (toolbarMode != ToolbarMode.HIDDEN) SubSetting(Settings.PREF_TOOLBAR_SWIPE_DOWN_TO_HIDE) else null,
+        when (toolbarMode) {
+             ToolbarMode.EXPANDABLE, ToolbarMode.TOOLBAR_KEYS -> SubSetting(Settings.PREF_TOOLBAR_KEYS)
+             else -> null
+        },
+        when (toolbarMode) {
+            ToolbarMode.EXPANDABLE, ToolbarMode.SUGGESTION_STRIP -> SubSetting(Settings.PREF_PINNED_TOOLBAR_KEYS)
+            else -> null
+        },
+        if (clipboardToolbarVisible) SubSetting(Settings.PREF_CLIPBOARD_TOOLBAR_KEYS) else null,
+        if (clipboardToolbarVisible) SubSetting(Settings.PREF_TOOLBAR_CUSTOM_KEY_CODES) else null,
+        if (toolbarMode == ToolbarMode.EXPANDABLE) SubSetting(Settings.PREF_QUICK_PIN_TOOLBAR_KEYS) else null,
+        if (toolbarMode == ToolbarMode.EXPANDABLE) SubSetting(Settings.PREF_AUTO_SHOW_TOOLBAR) else null,
+        if (toolbarMode == ToolbarMode.EXPANDABLE) SubSetting(Settings.PREF_AUTO_HIDE_TOOLBAR) else null,
+        if (toolbarMode != ToolbarMode.HIDDEN) SubSetting(Settings.PREF_SHOW_ONLY_TOOLBAR_WITH_HARDWARE_KEYBOARD) else null,
+        if (toolbarMode != ToolbarMode.HIDDEN) SubSetting(Settings.PREF_VARIABLE_TOOLBAR_DIRECTION) else null,
     )
 }
 
