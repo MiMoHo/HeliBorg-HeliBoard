@@ -127,7 +127,7 @@
     <!-- Description for override app flag to not show suggestions -->
     <string name="prefs_always_show_suggestions_summary">Ignore other apps’ request to disable suggestions (may cause issues)</string>
     <!-- Option to not override the above flags for InputType.WEB_EDIT_TEXT -->
-    <string name="prefs_always_show_suggestions_except_web_text">Don’t always show suggestions for web edit fields</string>
+    <string name="prefs_always_show_suggestions_except_web_text">Exclude web edit fields</string>
     <!-- Description for prefs_always_show_suggestions_except_web_text -->
     <string name="prefs_always_show_suggestions_except_web_text_summary">Web edit fields (mostly found in browsers) are a very common cause for issues with the always show suggestions setting</string>
     <!-- Option to block potentially offensive words to be shown -->
