@@ -150,6 +150,11 @@ final class DynamicGridKeyboard extends Keyboard {
         if (!(key instanceof GridKey)) return;
         synchronized (mLock) {
             mGridKeys.remove(key);
+            // an emoji used while viewing the recents tab is only queued, and the next
+            // flushPendingRecentKeys() would add it back
+            while (mPendingKeys.remove(key)) {
+                // remove every queued use
+            }
             mCachedGridKeys = null;
             updateCoordinates();
         }
