@@ -54,6 +54,9 @@ import helium314.keyboard.latin.utils.CloseIcon
 import helium314.keyboard.latin.utils.SearchIcon
 import helium314.keyboard.settings.preferences.PreferenceCategory
 
+/** Item for [SearchSettingsScreen] that is shown depending on a setting above it, indented by [level] steps */
+data class SubSetting(val key: String, val level: Int = 1)
+
 @Composable
 fun SearchSettingsScreen(
     onClickBack: () -> Unit,
@@ -77,11 +80,15 @@ fun SearchSettingsScreen(
                             if (it is Int) {
                                 PreferenceCategory(stringResource(it))
                             } else {
+                                val subSetting = it as? SubSetting
                                 // this only animates appearing prefs
                                 // a solution would be using a list(visible to key)
-                                AnimatedVisibility(visible = it != null) {
+                                AnimatedVisibility(
+                                    visible = it != null,
+                                    modifier = Modifier.padding(start = 24.dp * (subSetting?.level ?: 0))
+                                ) {
                                     if (it != null)
-                                        SettingsActivity.settingsContainer[it]?.Preference()
+                                        SettingsActivity.settingsContainer[subSetting?.key ?: it]?.Preference()
                                 }
                             }
                         }
