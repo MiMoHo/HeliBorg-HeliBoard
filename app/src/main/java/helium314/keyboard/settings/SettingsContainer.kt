@@ -16,15 +16,22 @@ import helium314.keyboard.settings.screens.createPreferencesSettings
 import helium314.keyboard.settings.screens.createToolbarSettings
 
 class SettingsContainer(context: Context) {
-    private val list = createSettings(context)
+    private val screens = createSettings(context)
+    private val list = screens.flatMap { it.second }
     private val map: Map<String, Setting> = HashMap<String, Setting>(list.size).apply {
         list.forEach {
             if (put(it.key, it) != null)
                 throw IllegalArgumentException("key $it added twice")
         }
     }
+    private val screenOfKey: Map<String, String> = HashMap<String, String>(list.size).apply {
+        screens.forEach { (screen, settings) -> settings.forEach { put(it.key, screen) } }
+    }
 
     operator fun get(key: Any): Setting? = map[key]
+
+    /** Returns the [SettingsDestination] of the screen that lists the setting with [key] */
+    fun screenOf(key: String): String? = screenOfKey[key]
 
     // filtering could be more elaborate, but should be good enough for a start
     // always have all settings in search, because:
@@ -62,10 +69,17 @@ class Setting(
 }
 
 // intentionally not putting individual debug settings in here so user knows the context
-private fun createSettings(context: Context) = createAboutSettings(context) + createAppearanceSettings(context) +
-        createCorrectionSettings(context) + createPreferencesSettings(context) + createToolbarSettings(context) +
-        createLayoutSettings(context) + createAdvancedSettings(context) +
-        if (JniUtils.sHaveGestureLib) createGestureTypingSettings(context) else emptyList()
+// settings are grouped by the screen listing them, so search results can be shown in their screen
+private fun createSettings(context: Context) = listOfNotNull(
+    SettingsDestination.About to createAboutSettings(context),
+    SettingsDestination.Appearance to createAppearanceSettings(context),
+    SettingsDestination.TextCorrection to createCorrectionSettings(context),
+    SettingsDestination.Preferences to createPreferencesSettings(context),
+    SettingsDestination.Toolbar to createToolbarSettings(context),
+    SettingsDestination.Layouts to createLayoutSettings(context),
+    SettingsDestination.Advanced to createAdvancedSettings(context),
+    if (JniUtils.sHaveGestureLib) SettingsDestination.GestureTyping to createGestureTypingSettings(context) else null
+)
 
 object SettingsWithoutKey {
     const val EDIT_PERSONAL_DICTIONARY = "edit_personal_dictionary"

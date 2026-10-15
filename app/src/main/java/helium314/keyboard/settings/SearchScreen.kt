@@ -3,6 +3,9 @@ package helium314.keyboard.settings
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -38,11 +41,16 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -52,7 +60,12 @@ import helium314.keyboard.latin.R
 import helium314.keyboard.latin.utils.BackButton
 import helium314.keyboard.latin.utils.CloseIcon
 import helium314.keyboard.latin.utils.SearchIcon
+import helium314.keyboard.settings.preferences.LocalPreferenceClickOverride
 import helium314.keyboard.settings.preferences.PreferenceCategory
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
+import kotlin.math.roundToInt
 
 @Composable
 fun SearchSettingsScreen(
@@ -67,11 +80,15 @@ fun SearchSettingsScreen(
         content = {
             if (content != null) content()
             else {
+                // a setting opened from search results is scrolled to and highlighted, unless it's currently hidden
+                val shownSetting = remember { settingToShow.also { settingToShow = null }?.takeIf { it in settings } }
+                val scrollState = rememberScrollState()
+                val shownModifier = if (shownSetting != null) shownSettingModifier(scrollState) else Modifier
                 Scaffold(
                     contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom)
                 ) { innerPadding ->
                     Column(
-                        Modifier.verticalScroll(rememberScrollState()).then(Modifier.padding(innerPadding))
+                        Modifier.verticalScroll(scrollState).then(Modifier.padding(innerPadding))
                     ) {
                         settings.forEach {
                             if (it is Int) {
@@ -79,7 +96,10 @@ fun SearchSettingsScreen(
                             } else {
                                 // this only animates appearing prefs
                                 // a solution would be using a list(visible to key)
-                                AnimatedVisibility(visible = it != null) {
+                                AnimatedVisibility(
+                                    visible = it != null,
+                                    modifier = if (it != null && it == shownSetting) shownModifier else Modifier
+                                ) {
                                     if (it != null)
                                         SettingsActivity.settingsContainer[it]?.Preference()
                                 }
@@ -106,8 +126,39 @@ fun SearchSettingsScreen(
             }
         },
         filteredItems = { SettingsActivity.settingsContainer.filter(it) },
-        itemContent = { it.Preference() }
+        itemContent = {
+            // clicking a search result shows it in its screen, only switches can be changed directly
+            CompositionLocalProvider(LocalPreferenceClickOverride provides { showInScreen(it.key) }) {
+                it.Preference()
+            }
+        }
     )
+}
+
+// key of the setting to show when its screen is opened from search results
+private var settingToShow: String? = null
+
+private fun showInScreen(key: String) {
+    val screen = SettingsActivity.settingsContainer.screenOf(key) ?: return
+    settingToShow = key
+    SettingsDestination.navigateTo(screen)
+}
+
+/** Scrolls the setting to the middle of the screen and highlights it for a moment, for a direct child of the scrolled column */
+@Composable
+private fun shownSettingModifier(scrollState: ScrollState): Modifier {
+    val color = MaterialTheme.colorScheme.primary
+    val alpha = remember { Animatable(0.3f) }
+    var position by remember { mutableStateOf<Pair<Int, Int>?>(null) } // top and height in the scrolled column
+    LaunchedEffect(Unit) {
+        val (top, height) = snapshotFlow { position }.filterNotNull().first()
+        scrollState.scrollTo(top - (scrollState.viewportSize - height) / 2)
+        delay(400)
+        alpha.animateTo(0f, tween(600))
+    }
+    return Modifier
+        .onPlaced { position = it.positionInParent().y.roundToInt() to it.size.height }
+        .drawBehind { drawRect(color.copy(alpha = alpha.value)) }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -122,10 +173,10 @@ fun <T: Any?> SearchScreen(
     content: @Composable (ColumnScope.() -> Unit)? = null,
 ) {
     // searchText and showSearch should have the same remember or rememberSaveable
-    // saveable survives orientation changes and switching between screens, but shows the
-    // keyboard in unexpected situations such as going back from another screen, which is rather annoying
-    var searchText by remember { mutableStateOf(TextFieldValue()) }
-    var showSearch by remember { mutableStateOf(false) }
+    // saveable survives orientation changes and switching between screens, e.g. search results are still shown when going
+    // back from a setting opened in its screen, and ExpandableSearchField only shows the keyboard when opened by the user
+    var searchText by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue()) }
+    var showSearch by rememberSaveable { mutableStateOf(false) }
     Scaffold(contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top))
     { innerPadding ->
         Column(Modifier.fillMaxSize().padding(innerPadding)) {
@@ -224,9 +275,12 @@ fun ExpandableSearchField(
     colors: TextFieldColors = TextFieldDefaults.colors(),
 ) {
     val focusRequester = remember { FocusRequester() }
+    // don't request focus (and show the keyboard) if already expanded when shown, e.g. when going back from another screen
+    var requestFocus by remember { mutableStateOf(!expanded) }
 
     LaunchedEffect(expanded) {
-        if (expanded) focusRequester.requestFocus()
+        if (expanded && requestFocus) focusRequester.requestFocus()
+        requestFocus = true
     }
     AnimatedVisibility(visible = expanded, modifier = Modifier.fillMaxWidth()) {
         TextField(

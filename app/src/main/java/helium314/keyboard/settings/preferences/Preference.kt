@@ -20,6 +20,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -50,6 +51,9 @@ fun PreferenceCategory(
     }
 }
 
+/** Replaces onClick of [Preference] if not null, e.g. for showing search results in their screen instead of changing them */
+val LocalPreferenceClickOverride = compositionLocalOf<(() -> Unit)?> { null }
+
 @Composable
 fun Preference(
     name: String,
@@ -59,10 +63,11 @@ fun Preference(
     @DrawableRes icon: Int? = null,
     value: @Composable (RowScope.() -> Unit)? = null,
 ) {
+    val clickOverride = LocalPreferenceClickOverride.current
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { onClick() }
+            .clickable { (clickOverride ?: onClick)() }
             .heightIn(min = 44.dp)
             .padding(vertical = 10.dp, horizontal = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
