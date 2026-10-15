@@ -411,6 +411,20 @@ public final class KeyboardSwitcher {
             mFakeToastView.setCompoundDrawables(appIcon, null, null, null);
         }
         mFakeToastView.setText(text);
+        // The input view also covers the screen above the keyboard (updateSoftInputWindowLayoutParameters
+        // makes it match the window), so a centred toast ends up in the middle of the screen, far above a
+        // low keyboard. Show it a little above the visible keyboard instead, where it doesn't cover the
+        // keys under the fingers.
+        final FrameLayout.LayoutParams toastParams = (FrameLayout.LayoutParams) mFakeToastView.getLayoutParams();
+        if (mMainKeyboardFrame.getVisibility() == View.VISIBLE && mCurrentInputView.getHeight() > 0) {
+            final int gap = Math.round(16 * mLatinIME.getResources().getDisplayMetrics().density);
+            toastParams.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+            toastParams.bottomMargin = Math.round(mCurrentInputView.getHeight() - mMainKeyboardFrame.getY()) + gap;
+        } else {
+            toastParams.gravity = Gravity.CENTER;
+            toastParams.bottomMargin = 0;
+        }
+        mFakeToastView.setLayoutParams(toastParams);
         mFakeToastView.setVisibility(View.VISIBLE);
         mFakeToastView.bringToFront();
         mFakeToastView.startAnimation(AnimationUtils.loadAnimation(mLatinIME, R.anim.fade_in));
