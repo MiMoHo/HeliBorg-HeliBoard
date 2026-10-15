@@ -749,8 +749,6 @@ public final class InputLogic {
                 performRecapitalization(sv);
                 inputTransaction.requireShiftUpdate(InputTransaction.SHIFT_UPDATE_NOW);
                 inputTransaction.setRequiresUpdateSuggestions();
-                if (mSpaceState == SpaceState.PHANTOM && sv.mShiftRemovesAutospace)
-                    mSpaceState = SpaceState.NONE;
                 break;
             }
             case KeyCode.CAPS_LOCK: {
