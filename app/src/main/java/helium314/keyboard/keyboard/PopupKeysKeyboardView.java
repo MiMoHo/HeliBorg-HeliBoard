@@ -45,6 +45,7 @@ public class PopupKeysKeyboardView extends KeyboardView implements PopupKeysPane
     private int mOriginX;
     private int mOriginY;
     private Key mCurrentKey;
+    private boolean mRequireDirectHit;
 
     private int mActivePointerId;
 
@@ -222,9 +223,26 @@ public class PopupKeysKeyboardView extends KeyboardView implements PopupKeysPane
         mCurrentKey = detectKey(x, y);
         if (mCurrentKey != null) {
             updateReleaseKeyGraphics(mCurrentKey);
-            onKeyInput(mCurrentKey, x, y);
+            if (!mRequireDirectHit || isOnKeyHitBox(mCurrentKey, x, y)) {
+                onKeyInput(mCurrentKey, x, y);
+            }
             mCurrentKey = null;
         }
+    }
+
+    /**
+     * When set, a key is only input if the finger is released inside its hit box. The key
+     * detector picks the nearest key within a generous slide allowance, which is fine for
+     * selecting a popup key, but not for a destructive action.
+     */
+    public void setRequireDirectHit(final boolean requireDirectHit) {
+        mRequireDirectHit = requireDirectHit;
+    }
+
+    // Uses the finger position itself: the key detector's touch point includes the vertical
+    // correction, which would move the accepted area below the drawn key.
+    private boolean isOnKeyHitBox(final Key key, final int x, final int y) {
+        return key.getHitBox().contains(x - getPaddingLeft(), y - getPaddingTop());
     }
 
     /**
