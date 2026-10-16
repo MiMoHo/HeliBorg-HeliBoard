@@ -31,7 +31,7 @@
     <!-- Warning text for when enabling inline emoji search with no emoji dictionary. The %s will be replaced by dictionary_link_text. -->
     <string name="emoji_dictionary_required">An emoji dictionary is required for this feature to work. Dictionaries in .dict format can be downloaded %s.</string>
     <!-- Option to show emoji descriptions on long press -->
-    <string name="show_emoji_descriptions">Show emoji description on long press</string>
+    <string name="show_emoji_descriptions">Show emoji and category names on long press</string>
     <!-- Option to control whether or not to show a popup with a larger font on each key press. -->
     <string name="popup_on_keypress">Popup on keypress</string>
     <!-- Option whether the keyboard can be hidden by swiping down on the toolbar -->
