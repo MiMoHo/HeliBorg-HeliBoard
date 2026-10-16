@@ -199,6 +199,11 @@ public final class EmojiPageKeyboardView extends KeyboardView implements
         }
 
         mPopupKeysKeyboardView.setKeyboard(popupKeysKeyboard);
+        // In recents the only popup key removes the emoji, so it must only be triggered when the
+        // finger is released on it, and not e.g. on the long-pressed emoji itself.
+        final Keyboard keyboard = getKeyboard();
+        mPopupKeysKeyboardView.setRequireDirectHit(keyboard instanceof DynamicGridKeyboard
+                && ((DynamicGridKeyboard) keyboard).isRecents());
         mPopupKeysKeyboardView.setVisibility(VISIBLE);
         return mPopupKeysKeyboardView;
     }
