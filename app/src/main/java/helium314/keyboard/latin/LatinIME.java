@@ -142,6 +142,9 @@ public class LatinIME extends InputMethodService implements
     private View mInputView;
     private InsetsOutlineProvider mInsetsUpdater;
     private SuggestionStripView mSuggestionStripView;
+    // Set while the strip shows inline autofill suggestions although the settings hide suggestions,
+    // see onInlineSuggestionsResponse. The strip goes back to the configured state when they are gone.
+    private boolean mInlineSuggestionsShownDespiteSettings;
 
     private RichInputMethodManager mRichImm;
     final KeyboardSwitcher mKeyboardSwitcher;
@@ -774,11 +777,13 @@ public class LatinIME extends InputMethodService implements
         mInputView = view;
         mInsetsUpdater = ViewOutlineProviderUtilsKt.setInsetsOutlineProvider(view);
         KtxKt.updateSoftInputWindowLayoutParameters(this, mInputView);
+        mInlineSuggestionsShownDespiteSettings = false; // a new view shows none
         updateSuggestionStripView(view);
     }
 
     public void updateSuggestionStripView(View view) {
-        mSuggestionStripView = mSettings.getCurrent().mToolbarMode == ToolbarMode.HIDDEN || isEmojiSearch()?
+        final boolean hidden = mSettings.getCurrent().mToolbarMode == ToolbarMode.HIDDEN && !mInlineSuggestionsShownDespiteSettings;
+        mSuggestionStripView = hidden || isEmojiSearch()?
                         null : view.findViewById(R.id.suggestion_strip_view);
         if (hasSuggestionStripView()) {
             mSuggestionStripView.setRtl(mRichImm.getCurrentSubtype().isRtlSubtype());
@@ -869,6 +874,7 @@ public class LatinIME extends InputMethodService implements
 
     void onStartInputViewInternal(final EditorInfo editorInfo, final boolean restarting) {
         super.onStartInputView(editorInfo, restarting);
+        hideInlineSuggestionsShownDespiteSettings();
 
         setGestureDataGatheringMode(editorInfo, restarting);
 
@@ -1053,6 +1059,7 @@ public class LatinIME extends InputMethodService implements
     void onFinishInputViewInternal(final boolean finishingInput) {
         super.onFinishInputView(finishingInput);
         Log.i(TAG, "onFinishInputView");
+        hideInlineSuggestionsShownDespiteSettings();
         cleanupInternalStateForFinishInput();
     }
 
@@ -1316,10 +1323,13 @@ public class LatinIME extends InputMethodService implements
     @RequiresApi(api = Build.VERSION_CODES.R)
     public InlineSuggestionsRequest onCreateInlineSuggestionsRequest(@NonNull Bundle uiExtras) {
         Log.d(TAG,"onCreateInlineSuggestionsRequest called");
-        if (Settings.getValues().mSuggestionStripHiddenPerUserSettings) {
+        // The strip is hidden entirely while the device is locked.
+        if (Settings.getValues().mIsLocked) {
             return null;
         }
-
+        // Also requested when the settings hide suggestions: then the strip shows them only while the
+        // autofill service provides some. Autofill services that don't offer inline suggestions are not
+        // affected, Android keeps showing their suggestions in a dropdown at the field.
         return InlineAutofillUtils.createInlineSuggestionRequest(mDisplayContext);
     }
 
@@ -1327,12 +1337,21 @@ public class LatinIME extends InputMethodService implements
     @RequiresApi(api = Build.VERSION_CODES.R)
     public boolean onInlineSuggestionsResponse(InlineSuggestionsResponse response) {
         Log.d(TAG,"onInlineSuggestionsResponse called");
-        if (Settings.getValues().mSuggestionStripHiddenPerUserSettings) {
+        final List<InlineSuggestion> inlineSuggestions = response.getInlineSuggestions();
+        if (inlineSuggestions.isEmpty()) {
+            hideInlineSuggestionsShownDespiteSettings();
             return false;
         }
 
-        final List<InlineSuggestion> inlineSuggestions = response.getInlineSuggestions();
-        if (inlineSuggestions.isEmpty()) {
+        if (Settings.getValues().mSuggestionStripHiddenPerUserSettings && !mInlineSuggestionsShownDespiteSettings
+                && mInputView != null) {
+            mInlineSuggestionsShownDespiteSettings = true;
+            updateSuggestionStripView(mInputView);
+            mKeyboardSwitcher.updateSuggestionStripVisibility();
+        }
+        // the strip may be gone, e.g. when the toolbar was hidden after the request
+        if (!hasSuggestionStripView()) {
+            mInlineSuggestionsShownDespiteSettings = false;
             return false;
         }
 
@@ -1342,8 +1361,25 @@ public class LatinIME extends InputMethodService implements
         mHandler.cancelResumeSuggestions();
 
         mSuggestionStripView.setExternalSuggestionView(inlineSuggestionView, true);
+        if (mInlineSuggestionsShownDespiteSettings) {
+            mSuggestionStripView.setToolbarVisibility(false);
+        }
 
         return true;
+    }
+
+    /** Returns the strip to the state configured in the settings, if it shows inline suggestions despite them. */
+    private void hideInlineSuggestionsShownDespiteSettings() {
+        if (!mInlineSuggestionsShownDespiteSettings) return;
+        mInlineSuggestionsShownDespiteSettings = false;
+        if (hasSuggestionStripView()) {
+            mSuggestionStripView.setSuggestions(SuggestedWords.getEmptyInstance(), mRichImm.getCurrentSubtype().isRtlSubtype());
+            mSuggestionStripView.setToolbarVisibility(mSettings.getCurrent().mToolbarMode == ToolbarMode.TOOLBAR_KEYS);
+        }
+        if (mInputView != null) {
+            updateSuggestionStripView(mInputView);
+        }
+        mKeyboardSwitcher.updateSuggestionStripVisibility();
     }
 
     public int getCurrentAutoCapsState() {
@@ -1499,7 +1535,8 @@ public class LatinIME extends InputMethodService implements
         final SettingsValues currentSettingsValues = mSettings.getCurrent();
         mInputLogic.setSuggestedWords(suggestedWords);
         // TODO: Modify this when we support suggestions with hard keyboard
-        if (!hasSuggestionStripView()) {
+        // While inline suggestions are shown despite the settings, only the autofill service replaces them.
+        if (!hasSuggestionStripView() || mInlineSuggestionsShownDespiteSettings) {
             return;
         }
         if (!onEvaluateInputViewShown()) {
@@ -1566,7 +1603,7 @@ public class LatinIME extends InputMethodService implements
      *  returns whether a clipboard suggestion has been set.
      */
     public boolean tryShowClipboardSuggestion() {
-        if (!hasSuggestionStripView()) return false;
+        if (!hasSuggestionStripView() || mInlineSuggestionsShownDespiteSettings) return false;
         View clipboardView = mClipboardHistoryManager.getClipboardSuggestionView(getCurrentInputEditorInfo(), mSuggestionStripView);
         if (clipboardView != null) {
             mSuggestionStripView.setExternalSuggestionView(clipboardView, false);
@@ -1610,6 +1647,7 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public void removeExternalSuggestions() {
+        hideInlineSuggestionsShownDespiteSettings();
         setNeutralSuggestionStrip();
         mHandler.postResumeSuggestions(false);
     }

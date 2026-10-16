@@ -253,6 +253,15 @@ public final class KeyboardSwitcher {
         mClipboardHistoryView.stopClipboardHistory();
     }
 
+    /** Shows the strip above the main keyboard exactly when {@link LatinIME#hasSuggestionStripView()}. */
+    public void updateSuggestionStripVisibility() {
+        // emoji and clipboard views set the strip themselves, and setMainKeyboardFrame sets it when switching back
+        if (mKeyboardView == null || mKeyboardView.getVisibility() != View.VISIBLE) return;
+        final int stripVisibility = mLatinIME.hasSuggestionStripView()? View.VISIBLE : View.GONE;
+        mStripContainer.setVisibility(stripVisibility);
+        mSuggestionStripView.setVisibility(stripVisibility);
+    }
+
     public void toggleLayout(@NonNull LayoutDirective.Utility layout, int autoCapsFlags, @Nullable RecapitalizeMode recapitalizeMode) {
         mState.toggleLayout(layout, autoCapsFlags, recapitalizeMode);
     }
