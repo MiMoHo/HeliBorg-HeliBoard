@@ -14,12 +14,15 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.util.AttributeSet;
+import android.view.Gravity;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.PopupWindow;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -38,6 +41,7 @@ import helium314.keyboard.keyboard.MainKeyboardView;
 import helium314.keyboard.keyboard.PointerTracker;
 import helium314.keyboard.keyboard.internal.KeyDrawParams;
 import helium314.keyboard.keyboard.internal.KeyVisualAttributes;
+import helium314.keyboard.keyboard.internal.KeyboardIconsSet;
 import helium314.keyboard.keyboard.internal.keyboard_parser.EmojiParserKt;
 import helium314.keyboard.keyboard.internal.keyboard_parser.floris.KeyCode;
 import helium314.keyboard.latin.AudioAndHapticFeedbackManager;
@@ -200,6 +204,7 @@ public final class EmojiPalettesView extends LinearLayout
     private KeyboardActionListener mKeyboardActionListener = KeyboardActionListener.EMPTY_LISTENER;
     private final EmojiCategory mEmojiCategory;
     private ViewPager2 mPager;
+    private PopupWindow mClearRecentsPopup;
 
     public EmojiPalettesView(final Context context, final AttributeSet attrs) {
         this(context, attrs, R.attr.emojiPalettesViewStyle);
@@ -247,13 +252,71 @@ public final class EmojiPalettesView extends LinearLayout
         iconView.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
         iconView.setOnClickListener(this);
         if (category == EmojiCategory.Category.RECENTS) {
-            iconView.setOnLongClickListener(v -> {
-                AudioAndHapticFeedbackManager.getInstance().performHapticAndAudioFeedback(KeyCode.NOT_SPECIFIED, this, HapticEvent.KEY_LONG_PRESS);
-                clearRecentKeys();
-
-                return true;
-            });
+            setupClearRecentsGesture(iconView);
         }
+    }
+
+    // Long-pressing the recents tab while the recents are shown pops up a delete button above the tab.
+    // Releasing the finger on that button clears all recent emojis, releasing anywhere else does nothing.
+    @SuppressLint("ClickableViewAccessibility")
+    private void setupClearRecentsGesture(final View tab) {
+        tab.setOnLongClickListener(this::showClearRecentsButton);
+        tab.setOnTouchListener((v, event) -> {
+            if (mClearRecentsPopup == null) return false; // usual handling of taps and long presses
+            final View button = mClearRecentsPopup.getContentView();
+            final boolean onButton = isOnView(button, event);
+            switch (event.getActionMasked()) {
+                case MotionEvent.ACTION_MOVE -> button.setPressed(onButton);
+                case MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    dismissClearRecentsButton();
+                    v.setPressed(false); // the tab does not see the release
+                    if (onButton && event.getActionMasked() == MotionEvent.ACTION_UP)
+                        clearRecentKeys();
+                }
+            }
+            return true;
+        });
+    }
+
+    private boolean showClearRecentsButton(final View tab) {
+        if (!mEmojiCategory.isInRecentTab() || RecentEmojis.get().isEmpty())
+            return false;
+        final ImageView button = new ImageView(getContext());
+        button.setImageDrawable(KeyboardIconsSet.Companion.getInstance().getNewDrawable(KeyboardIconsSet.NAME_BIN, getContext()));
+        button.setContentDescription(getContext().getString(R.string.delete));
+        button.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        mColors.setColor(button, ColorType.KEY_ICON);
+        mColors.setBackground(button, ColorType.FUNCTIONAL_KEY_BACKGROUND);
+        final int size = Math.max(tab.getWidth(), tab.getHeight());
+        final int padding = size / 5;
+        button.setPadding(padding, padding, padding, padding);
+
+        mClearRecentsPopup = new PopupWindow(button, size, size);
+        mClearRecentsPopup.setClippingEnabled(false);
+        mClearRecentsPopup.setTouchable(false); // the tab keeps receiving the touch events
+        final int[] location = new int[2];
+        tab.getLocationInWindow(location);
+        final int x = location[0] + (tab.getWidth() - size) / 2;
+        int y = location[1] - size - padding; // above the tab
+        if (y < 0) y = location[1] + tab.getHeight() + padding; // below if there is no room
+        mClearRecentsPopup.showAtLocation(tab, Gravity.NO_GRAVITY, x, y);
+        if (tab.getParent() != null) tab.getParent().requestDisallowInterceptTouchEvent(true);
+        AudioAndHapticFeedbackManager.getInstance().performHapticAndAudioFeedback(KeyCode.NOT_SPECIFIED, this, HapticEvent.KEY_LONG_PRESS);
+        return true;
+    }
+
+    private void dismissClearRecentsButton() {
+        if (mClearRecentsPopup == null) return;
+        mClearRecentsPopup.dismiss();
+        mClearRecentsPopup = null;
+    }
+
+    private static boolean isOnView(final View view, final MotionEvent event) {
+        final int[] location = new int[2];
+        view.getLocationOnScreen(location);
+        final float x = event.getRawX() - location[0];
+        final float y = event.getRawY() - location[1];
+        return x >= 0 && x < view.getWidth() && y >= 0 && y < view.getHeight();
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -336,7 +399,7 @@ public final class EmojiPalettesView extends LinearLayout
         RecentEmojis.clear();
         getRecentsKeyboard().removeAllKeys();
         mPager.getAdapter().notifyItemChanged(mEmojiCategory.getRecentTabId());
-        KeyboardSwitcher.getInstance().showToast(getResources().getString(R.string.recent_emojis_cleared), true);
+        // no toast: recents are only cleared from the recents page, which now shows up empty
     }
 
     @Override
@@ -420,6 +483,7 @@ public final class EmojiPalettesView extends LinearLayout
     }
 
     public void stopEmojiPalettes() {
+        dismissClearRecentsButton();
         if (!initialized) return;
         getRecentsKeyboard().flushPendingRecentKeys();
     }
