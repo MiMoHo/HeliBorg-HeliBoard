@@ -35,6 +35,9 @@ import androidx.annotation.Nullable;
 import helium314.keyboard.event.Event;
 import helium314.keyboard.keyboard.clipboard.ClipboardHistoryView;
 import helium314.keyboard.keyboard.emoji.EmojiPalettesView;
+import helium314.keyboard.keyboard.emoji.EmojiSearch;
+import helium314.keyboard.keyboard.emoji.EmojiSearchResultsView;
+import helium314.keyboard.keyboard.emoji.RecentEmojis;
 import helium314.keyboard.keyboard.internal.KeyboardState;
 import helium314.keyboard.keyboard.internal.LayoutDirective;
 import helium314.keyboard.keyboard.internal.ShiftMode;
@@ -46,6 +49,7 @@ import helium314.keyboard.latin.LatinIME;
 import helium314.keyboard.latin.R;
 import helium314.keyboard.latin.RichInputMethodManager;
 import helium314.keyboard.latin.RichInputMethodSubtype;
+import helium314.keyboard.latin.common.Constants;
 import helium314.keyboard.latin.settings.Settings;
 import helium314.keyboard.latin.settings.SettingsKt;
 import helium314.keyboard.latin.settings.SettingsValues;
@@ -62,6 +66,8 @@ import helium314.keyboard.latin.utils.ScriptUtils;
 import helium314.keyboard.latin.utils.SubtypeUtilsAdditional;
 import helium314.keyboard.latin.utils.ToolbarMode;
 
+import java.util.List;
+
 public final class KeyboardSwitcher {
     private static final String TAG = KeyboardSwitcher.class.getSimpleName();
 
@@ -71,6 +77,8 @@ public final class KeyboardSwitcher {
     private MainKeyboardView mKeyboardView;
     private EmojiPalettesView mEmojiPalettesView;
     private View mEmojiTabStripView;
+    private EmojiSearch mEmojiSearch;
+    private EmojiSearchResultsView mEmojiSearchResults;
     private LinearLayout mClipboardStripView;
     private HorizontalScrollView mClipboardStripScrollView;
     private SuggestionStripView mSuggestionStripView;
@@ -153,28 +161,39 @@ public final class KeyboardSwitcher {
 
     public void loadKeyboard(EditorInfo editorInfo, SettingsValues settingsValues, int currentAutoCapsState,
                              @Nullable RecapitalizeMode currentRecapitalizeState, KeyboardLayoutSet.InternalAction internalAction) {
-        KeyboardLayoutSet.Builder builder = new KeyboardLayoutSet.Builder(mThemeContext, editorInfo, settingsValues);
-        int keyboardWidth = ResourceUtils.getKeyboardWidth(mThemeContext, settingsValues);
-        int keyboardHeight = ResourceUtils.getKeyboardHeight(mThemeContext.getResources(), settingsValues);
-        mKeyboardLayoutSet = builder.setKeyboardGeometry(keyboardWidth, keyboardHeight)
-                .setSubtype(mRichImm.getCurrentSubtype())
-                .setInternalAction(internalAction)
-                .build();
+        final KeyboardLayoutSet.Builder builder = buildKeyboardLayoutSet(editorInfo, settingsValues, internalAction);
         try {
             mState.onLoadKeyboard(currentAutoCapsState, currentRecapitalizeState, settingsValues.mOneHandedModeEnabled);
         } catch (KeyboardLayoutSet.Companion.KeyboardLayoutSetException e) {
             Log.e(TAG, "loading keyboard failed: " + e.getKeyboardId(), e.getCause());
             try {
                 InputMethodSubtype defaults = SubtypeUtilsAdditional.INSTANCE.createDefaultSubtype(mRichImm.getCurrentSubtypeLocale());
-                mKeyboardLayoutSet = builder.setKeyboardGeometry(keyboardWidth, keyboardHeight)
-                        .setSubtype(RichInputMethodSubtype.Companion.get(defaults))
-                        .build();
+                mKeyboardLayoutSet = builder.setSubtype(RichInputMethodSubtype.Companion.get(defaults)).build();
                 mState.onLoadKeyboard(currentAutoCapsState, currentRecapitalizeState, false);
                 showToast("error loading the keyboard, falling back to defaults", false);
             } catch (KeyboardLayoutSet.Companion.KeyboardLayoutSetException e2) {
                 Log.e(TAG, "even fallback to defaults failed: " + e2.getKeyboardId(), e2.getCause());
             }
         }
+    }
+
+    /** Sets {@link #mKeyboardLayoutSet} and returns its builder, e.g. for falling back to the default layout */
+    private KeyboardLayoutSet.Builder buildKeyboardLayoutSet(EditorInfo editorInfo, SettingsValues settingsValues,
+                                                             @Nullable KeyboardLayoutSet.InternalAction internalAction) {
+        int keyboardHeight = ResourceUtils.getKeyboardHeight(mThemeContext.getResources(), settingsValues);
+        if (isEmojiSearchActive()) {
+            // The keyboard types into the search field, and gives up the height of the results row,
+            // so the keyboard as a whole keeps its height.
+            editorInfo = EmojiSearch.EDITOR_INFO;
+            internalAction = null;
+            keyboardHeight -= mEmojiSearch.getResultsHeight();
+        }
+        final KeyboardLayoutSet.Builder builder = new KeyboardLayoutSet.Builder(mThemeContext, editorInfo, settingsValues);
+        mKeyboardLayoutSet = builder.setKeyboardGeometry(ResourceUtils.getKeyboardWidth(mThemeContext, settingsValues), keyboardHeight)
+                .setSubtype(mRichImm.getCurrentSubtype())
+                .setInternalAction(internalAction)
+                .build();
+        return builder;
     }
 
     public void saveKeyboardState() {
@@ -225,6 +244,78 @@ public final class KeyboardSwitcher {
         mState.setLayout(LayoutDirective.Utility.CLIPBOARD);
     }
 
+    public boolean isEmojiSearchActive() {
+        return mEmojiSearch != null && mEmojiSearch.isActive();
+    }
+
+    /** The emoji search of the current input view, see {@link #startEmojiSearch()} */
+    public EmojiSearch getEmojiSearch() {
+        return mEmojiSearch;
+    }
+
+    /**
+     * Turns the emoji tab strip into a search field and shows the alphabet keyboard for typing into it,
+     * with a row of matching emojis in between. Started from the search key of the emoji view.
+     */
+    public void startEmojiSearch() {
+        if (mEmojiSearch == null || isEmojiSearchActive()) return;
+        mEmojiPalettesView.stopEmojiPalettes();
+        mEmojiSearch.start();
+        // no gesture typing: it would type words into the text field of the app
+        PointerTracker.setGestureHandlingEnabledByUser(false);
+        loadKeyboard(mLatinIME.getCurrentInputEditorInfo(), Settings.getValues(), Constants.TextUtils.CAP_MODE_OFF, null, null);
+    }
+
+    /**
+     * Ends the emoji search and empties it, then shows the emoji view, or the alphabet keyboard
+     * for the text field of the app if {@code showEmojiView} is false.
+     */
+    public void stopEmojiSearch(final boolean showEmojiView) {
+        if (!isEmojiSearchActive()) return;
+        endEmojiSearch();
+        loadKeyboard(mLatinIME.getCurrentInputEditorInfo(), Settings.getValues(), mLatinIME.getCurrentAutoCapsState(),
+                mLatinIME.getCurrentRecapitalizeState(), null);
+        if (showEmojiView) setEmojiKeyboard();
+    }
+
+    /**
+     * Enter on the keyboard of the emoji search: enters the best match if autocorrect is on, and ends the search.
+     * This is what the done action of the search field did when the search was a separate activity.
+     */
+    public void onEmojiSearchEnter() {
+        if (!isEmojiSearchActive()) return;
+        final List<String> results = mEmojiSearch.getResults();
+        // not mAutoCorrectEnabled, which also depends on the text field of the app
+        if (Settings.getValues().mAutoCorrectionEnabledPerUserSettings && !results.isEmpty()) {
+            pickEmojiSearchResult(results.get(0));
+        }
+        stopEmojiSearch(true);
+    }
+
+    /** Enters {@code emoji} into the text field of the app, like the emoji view does */
+    private void pickEmojiSearchResult(final String emoji) {
+        if (!Settings.getValues().mIncognitoModeEnabled) {
+            RecentEmojis.add(emoji);
+        }
+        mLatinIME.onTextInput(emoji);
+        if (Settings.getValues().mAlphaAfterEmojiInEmojiView) {
+            stopEmojiSearch(false);
+        }
+    }
+
+    /** Hides and empties the emoji search, and prepares the keyboard for the text field of the app again, without showing it */
+    private void endEmojiSearch() {
+        if (!isEmojiSearchActive()) return;
+        mEmojiSearch.stop();
+        PointerTracker.setGestureHandlingEnabledByUser(Settings.getValues().mGestureInputEnabled);
+        buildKeyboardLayoutSet(mLatinIME.getCurrentInputEditorInfo(), Settings.getValues(), null);
+    }
+
+    /** Height of the row of emoji search results if shown, which is between the strip and the keyboard */
+    public int getEmojiSearchResultsHeight() {
+        return mEmojiSearchResults != null && mEmojiSearchResults.isShown() ? mEmojiSearchResults.getHeight() : 0;
+    }
+
     public boolean isImeSuppressedByHardwareKeyboard(
             @NonNull final SettingsValues settingsValues,
             @NonNull final KeyboardSwitchState toggleState) {
@@ -235,8 +326,9 @@ public final class KeyboardSwitcher {
             @NonNull final SettingsValues settingsValues,
             @NonNull final KeyboardSwitchState toggleState) {
         final int visibility = isImeSuppressedByHardwareKeyboard(settingsValues, toggleState) ? View.GONE : View.VISIBLE;
-        final int stripVisibility = mLatinIME.hasSuggestionStripView()? View.VISIBLE : View.GONE;
-        mStripContainer.setVisibility(stripVisibility);
+        final boolean emojiSearch = isEmojiSearchActive(); // the strip container shows the search field instead of suggestions
+        final int stripVisibility = mLatinIME.hasSuggestionStripView() && !emojiSearch ? View.VISIBLE : View.GONE;
+        mStripContainer.setVisibility(emojiSearch ? View.VISIBLE : stripVisibility);
         PointerTracker.switchTo(mKeyboardView);
         mKeyboardView.setVisibility(visibility);
         // The visibility of {@link #mKeyboardView} must be aligned with {@link #MainKeyboardFrame}.
@@ -537,6 +629,7 @@ public final class KeyboardSwitcher {
         if (mKeyboardView != null) {
             mKeyboardView.closing();
         }
+        endEmojiSearch(); // it ends with its views
         PointerTracker.clearOldViewData();
         SharedPreferences prefs = KtxKt.prefs(displayContext);
         if (mSuggestionStripView != null)
@@ -563,6 +656,20 @@ public final class KeyboardSwitcher {
         mClipboardHistoryView.setHardwareAcceleratedDrawingEnabled(isHardwareAcceleratedDrawingEnabled);
         mClipboardHistoryView.setKeyboardActionListener(mLatinIME.mKeyboardActionListener);
         mEmojiTabStripView = mCurrentInputView.findViewById(R.id.emoji_tab_strip);
+        mEmojiSearchResults = mCurrentInputView.findViewById(R.id.emoji_search_results);
+        mEmojiSearchResults.setHardwareAcceleratedDrawingEnabled(isHardwareAcceleratedDrawingEnabled);
+        mEmojiSearch = new EmojiSearch(mCurrentInputView.findViewById(R.id.emoji_search_bar), mEmojiSearchResults,
+                mLatinIME.getWindow(), mLatinIME.mKeyboardActionListener, new EmojiSearch.Listener() {
+                    @Override
+                    public void onEmojiSearchResultPicked(@NonNull String emoji) {
+                        pickEmojiSearchResult(emoji);
+                    }
+
+                    @Override
+                    public void onEmojiSearchCloseRequested() {
+                        stopEmojiSearch(true);
+                    }
+                });
         mClipboardStripView = mCurrentInputView.findViewById(R.id.clipboard_strip);
         mClipboardStripScrollView = mCurrentInputView.findViewById(R.id.clipboard_strip_scroll_view);
         mSuggestionStripView = mCurrentInputView.findViewById(R.id.suggestion_strip_view);
@@ -647,6 +754,7 @@ public final class KeyboardSwitcher {
             if (DEBUG_ACTION) {
                 Log.d(TAG, "setEmojiKeyboard");
             }
+            endEmojiSearch();
             mMainKeyboardFrame.setVisibility(View.VISIBLE);
             // The visibility of {@link #mKeyboardView} must be aligned with {@link #MainKeyboardFrame}.
             // @see #getVisibleKeyboardView() and
@@ -667,6 +775,7 @@ public final class KeyboardSwitcher {
             if (DEBUG_ACTION) {
                 Log.d(TAG, "setClipboardKeyboard");
             }
+            endEmojiSearch();
             mMainKeyboardFrame.setVisibility(View.VISIBLE);
             // The visibility of {@link #mKeyboardView} must be aligned with {@link #MainKeyboardFrame}.
             // @see #getVisibleKeyboardView() and
