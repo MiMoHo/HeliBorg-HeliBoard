@@ -132,7 +132,7 @@ public final class KeyboardSwitcher {
             if (mKeyboardView != null)
                 mLatinIME.setInputView(onCreateInputView(displayContext, mIsHardwareAcceleratedDrawingEnabled));
         } else if (mCurrentInputView != null && mLatinIME.hasSuggestionStripView()
-                    == (Settings.getValues().mToolbarMode == ToolbarMode.HIDDEN || mLatinIME.isEmojiSearch())) {
+                    == (Settings.getValues().mToolbarMode == ToolbarMode.HIDDEN)) {
             mLatinIME.updateSuggestionStripView(mCurrentInputView);
         }
     }
