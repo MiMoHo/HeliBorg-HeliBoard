@@ -12,7 +12,6 @@ import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.content.res.Resources;
-import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.view.ContextThemeWrapper;
 import android.view.Gravity;
@@ -76,7 +75,8 @@ public final class KeyboardSwitcher {
     private SuggestionStripView mSuggestionStripView;
     private FrameLayout mStripContainer;
     private ClipboardHistoryView mClipboardHistoryView;
-    private TextView mFakeToastView;
+    private View mFakeToastView;
+    private TextView mFakeToastText;
     private ImageView mBackgroundGatheringIndicator;
     private LatinIME mLatinIME;
     private RichInputMethodManager mRichImm;
@@ -378,7 +378,7 @@ public final class KeyboardSwitcher {
     }
 
     /**
-     * Displays a toast message.
+     * Displays a toast message a little above the keyboard.
      *
      * @param text The text to display in the toast message.
      * @param briefToast If true, the toast duration will be short; otherwise, it will last longer.
@@ -388,7 +388,10 @@ public final class KeyboardSwitcher {
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2) {
             final int toastLength = briefToast ? Toast.LENGTH_SHORT : Toast.LENGTH_LONG;
             final Toast toast = Toast.makeText(mLatinIME, text, toastLength);
-            toast.setGravity(Gravity.CENTER, 0, 0);
+            // From Android 11 on the system places text toasts itself and ignores setGravity.
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R && isKeyboardFrameShown()) {
+                toast.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL, 0, getToastBottomOffset());
+            }
             toast.show();
         } else {
             final int toastLength = briefToast ? 2000 : 3500;
@@ -400,30 +403,15 @@ public final class KeyboardSwitcher {
         return Settings.getValues().isSecondaryStripVisible()? View.VISIBLE : View.GONE;
     }
 
-    // Displays a toast-like message with the provided text for a specified duration.
+    // Displays a toast-like message with the provided text for a specified duration. The layout copies the text
+    // toast the system shows from Android 12 on, so it looks like the toasts of other apps.
     private void showFakeToast(final String text, final int timeMillis) {
         if (mFakeToastView.getVisibility() == View.VISIBLE) return;
 
-        final Drawable appIcon = mFakeToastView.getCompoundDrawables()[0];
-        if (appIcon != null) {
-            final int bound = mFakeToastView.getLineHeight();
-            appIcon.setBounds(0, 0, bound, bound);
-            mFakeToastView.setCompoundDrawables(appIcon, null, null, null);
-        }
-        mFakeToastView.setText(text);
-        // The input view also covers the screen above the keyboard (updateSoftInputWindowLayoutParameters
-        // makes it match the window), so a centred toast ends up in the middle of the screen, far above a
-        // low keyboard. Show it a little above the visible keyboard instead, where it doesn't cover the
-        // keys under the fingers.
+        mFakeToastText.setText(text);
         final FrameLayout.LayoutParams toastParams = (FrameLayout.LayoutParams) mFakeToastView.getLayoutParams();
-        if (mMainKeyboardFrame.getVisibility() == View.VISIBLE && mCurrentInputView.getHeight() > 0) {
-            final int gap = Math.round(16 * mLatinIME.getResources().getDisplayMetrics().density);
-            toastParams.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
-            toastParams.bottomMargin = Math.round(mCurrentInputView.getHeight() - mMainKeyboardFrame.getY()) + gap;
-        } else {
-            toastParams.gravity = Gravity.CENTER;
-            toastParams.bottomMargin = 0;
-        }
+        toastParams.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+        toastParams.bottomMargin = getToastBottomOffset();
         mFakeToastView.setLayoutParams(toastParams);
         mFakeToastView.setVisibility(View.VISIBLE);
         mFakeToastView.bringToFront();
@@ -433,6 +421,26 @@ public final class KeyboardSwitcher {
             mFakeToastView.startAnimation(AnimationUtils.loadAnimation(mLatinIME, R.anim.fade_out));
             mFakeToastView.setVisibility(View.GONE);
         }, timeMillis);
+    }
+
+    private boolean isKeyboardFrameShown() {
+        return mCurrentInputView != null && mCurrentInputView.getHeight() > 0
+                && mMainKeyboardFrame.getVisibility() == View.VISIBLE;
+    }
+
+    /**
+     * Distance from the bottom of the input view to the bottom of a toast. The input view also covers the screen
+     * above the keyboard (updateSoftInputWindowLayoutParameters makes it match the window), so a centred toast
+     * would end up in the middle of the screen. Just as the system toast sits a little above the bottom of the
+     * screen, this puts it a little above the visible keyboard, where it doesn't cover the keys under the fingers.
+     * Without a visible keyboard it keeps the system toast's distance from the bottom.
+     */
+    private int getToastBottomOffset() {
+        final float density = mLatinIME.getResources().getDisplayMetrics().density;
+        if (isKeyboardFrameShown()) {
+            return Math.round(mCurrentInputView.getHeight() - mMainKeyboardFrame.getY() + 16 * density);
+        }
+        return Math.round(48 * density);
     }
 
     public void setBackgroundGatheringIndicator(boolean enabled, boolean hasData, boolean saving) {
@@ -566,6 +574,7 @@ public final class KeyboardSwitcher {
         mEmojiPalettesView = mCurrentInputView.findViewById(R.id.emoji_palettes_view);
         mClipboardHistoryView = mCurrentInputView.findViewById(R.id.clipboard_history_view);
         mFakeToastView = mCurrentInputView.findViewById(R.id.fakeToast);
+        mFakeToastText = mCurrentInputView.findViewById(R.id.fakeToastText);
 
         mKeyboardViewWrapper = mCurrentInputView.findViewById(R.id.keyboard_view_wrapper);
         mKeyboardViewWrapper.setKeyboardActionListener(mLatinIME.mKeyboardActionListener);
