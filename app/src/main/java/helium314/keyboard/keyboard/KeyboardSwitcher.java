@@ -332,6 +332,13 @@ public final class KeyboardSwitcher {
         mState.onUpdateShiftState(autoCapsFlags, recapitalizeMode);
     }
 
+    /** Shows on the space bar whether a space will be inserted before the next word (phantom space). */
+    public void setPendingSpaceIndicator(final boolean pending) {
+        final MainKeyboardView keyboardView = getMainKeyboardView();
+        if (keyboardView != null)
+            keyboardView.setPendingSpaceIndicator(pending);
+    }
+
     public void setOneHandedModeEnabled(boolean enabled, boolean force) {
         if (!force && mKeyboardViewWrapper.getOneHandedModeEnabled() == enabled) {
             return;

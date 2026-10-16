@@ -173,7 +173,7 @@ public final class InputLogic {
         mWordComposer.restartCombining(combiningSpec);
         resetComposingState(true /* alsoResetLastComposedWord */);
         mDeleteCount = 0;
-        mSpaceState = SpaceState.NONE;
+        setSpaceState(SpaceState.NONE);
         mRecapitalizeStatus.disable(); // Do not perform recapitalize until the cursor is moved once
         mCurrentlyPressedHardwareKeys.clear();
         mSuggestedWords = SuggestedWords.getEmptyInstance();
@@ -223,7 +223,7 @@ public final class InputLogic {
         }
         resetComposingState(true);
         mInputLogicHandler.reset();
-        mSpaceState = SpaceState.NONE;
+        setSpaceState(SpaceState.NONE);
     }
 
     /**
@@ -269,7 +269,7 @@ public final class InputLogic {
         StatsUtils.onWordCommitUserTyped(mEnteredText, mWordComposer.isBatchMode());
         mConnection.endBatchEdit();
         // Space state must be updated before calling updateShiftState
-        mSpaceState = SpaceState.NONE;
+        setSpaceState(SpaceState.NONE);
         mEnteredText = text;
         mWordBeingCorrectedByCursor = null;
         inputTransaction.setDidAffectContents();
@@ -359,7 +359,7 @@ public final class InputLogic {
 
         // Space state must be updated before calling updateShiftState
         if (settingsValues.mAutospaceAfterSuggestion)
-            mSpaceState = SpaceState.PHANTOM;
+            setSpaceState(SpaceState.PHANTOM);
         inputTransaction.requireShiftUpdate(InputTransaction.SHIFT_UPDATE_NOW);
         setInlineEmojiSearchAction(false);
 
@@ -413,7 +413,7 @@ public final class InputLogic {
         // the call to updateShiftState.
         // We set this to NONE because after a cursor move, we don't want the space
         // state-related special processing to kick in.
-        mSpaceState = SpaceState.NONE;
+        setSpaceState(SpaceState.NONE);
 
         final boolean selectionChangedOrSafeToReset =
                 oldSelStart != newSelStart || oldSelEnd != newSelEnd // selection changed
@@ -603,7 +603,7 @@ public final class InputLogic {
             boolean autoShiftHasBeenOverridden =
                 (keyboardSwitcher.getKeyboardCapsMode() == CapsMode.OFF) != (getCurrentAutoCapsState(settingsValues) == 0);
             if (settingsValues.mAutospaceBeforeGestureTyping)
-                mSpaceState = SpaceState.PHANTOM; // influences autoCapsState
+                setSpaceState(SpaceState.PHANTOM); // influences autoCapsState
             if (!autoShiftHasBeenOverridden) {
                 // When we change the space state, we need to update the shift state of the
                 // keyboard unless it has been overridden manually. This is happening for example
@@ -705,7 +705,7 @@ public final class InputLogic {
                     && !settingsValues.isWordConnector(codePoint)
                     && !settingsValues.isUsuallyFollowedBySpace(codePoint)) {
                 insertAutomaticSpaceIfOptionsAndTextAllow(settingsValues);
-                mSpaceState = SpaceState.NONE;
+                setSpaceState(SpaceState.NONE);
             }
             setComposingTextInternal(mWordComposer.getTypedWord(), 1);
             inputTransaction.setDidAffectContents();
@@ -750,7 +750,7 @@ public final class InputLogic {
                 inputTransaction.requireShiftUpdate(InputTransaction.SHIFT_UPDATE_NOW);
                 inputTransaction.setRequiresUpdateSuggestions();
                 if (mSpaceState == SpaceState.PHANTOM && sv.mShiftRemovesAutospace)
-                    mSpaceState = SpaceState.NONE;
+                    setSpaceState(SpaceState.NONE);
                 break;
             }
             case KeyCode.CAPS_LOCK: {
@@ -976,7 +976,7 @@ public final class InputLogic {
             final InputTransaction inputTransaction,
             final LatinIME.UIHandler handler) {
         final int codePoint = event.getCodePoint();
-        mSpaceState = SpaceState.NONE;
+        setSpaceState(SpaceState.NONE);
         final SettingsValues sv = inputTransaction.getSettingsValues();
 
         // wrap / unwrap selected text in codepoint pairs
@@ -1125,7 +1125,7 @@ public final class InputLogic {
             final boolean swapWeakSpace = tryStripSpaceAndReturnWhetherShouldSwapInstead(event, inputTransaction);
 
             if (swapWeakSpace && trySwapSwapperAndSpace(event, inputTransaction)) {
-                mSpaceState = SpaceState.WEAK;
+                setSpaceState(SpaceState.WEAK);
             } else if ((settingsValues.mInputAttributes.mInputType & InputType.TYPE_MASK_CLASS) != InputType.TYPE_CLASS_TEXT
                     && codePoint >= '0' && codePoint <= '9') {
                 // weird issue when committing text: https://github.com/HeliBorg/HeliBoard/issues/585
@@ -1205,15 +1205,15 @@ public final class InputLogic {
         }
 
         if (tryPerformDoubleSpacePeriod(event, inputTransaction)) {
-            mSpaceState = SpaceState.DOUBLE;
+            setSpaceState(SpaceState.DOUBLE);
             inputTransaction.setRequiresUpdateSuggestions();
             StatsUtils.onDoubleSpacePeriod();
         } else if (swapWeakSpace && trySwapSwapperAndSpace(event, inputTransaction)) {
-            mSpaceState = SpaceState.SWAP_PUNCTUATION;
+            setSpaceState(SpaceState.SWAP_PUNCTUATION);
             mSuggestionStripViewAccessor.setNeutralSuggestionStrip();
         } else if (Constants.CODE_SPACE == codePoint) {
             if (!mSuggestedWords.isPunctuationSuggestions()) {
-                mSpaceState = SpaceState.WEAK;
+                setSpaceState(SpaceState.WEAK);
             }
 
             startDoubleSpacePeriodCountdown(inputTransaction);
@@ -1237,7 +1237,7 @@ public final class InputLogic {
                 // separator does not normally need a space on the right (that's the difference
                 // between swappers and strippers), so we should not stay in phantom space state if
                 // the separator is a stripper. Hence the additional test above.
-                mSpaceState = SpaceState.PHANTOM;
+                setSpaceState(SpaceState.PHANTOM);
             } else {
                 // mSpaceState is still SpaceState.NONE, but some characters should typically
                 // be followed by space. Set phantom space state for such characters if the user
@@ -1249,7 +1249,7 @@ public final class InputLogic {
                 if (wasComposingWord
                         && settingsValues.mAutospaceAfterPunctuation
                         && (settingsValues.isUsuallyFollowedBySpace(codePoint) || isInsideDoubleQuoteOrAfterDigit)) {
-                    mSpaceState = SpaceState.PHANTOM;
+                    setSpaceState(SpaceState.PHANTOM);
                 }
             }
 
@@ -1276,7 +1276,7 @@ public final class InputLogic {
      */
     private void handleBackspaceEvent(final Event event, final InputTransaction inputTransaction,
             final String currentKeyboardScript) {
-        mSpaceState = SpaceState.NONE;
+        setSpaceState(SpaceState.NONE);
         mDeleteCount++;
 
         // In many cases after backspace, we need to update the shift state. Normally we need
@@ -2006,7 +2006,7 @@ public final class InputLogic {
             mConnection.commitText(textToCommit, 1);
             if (usePhantomSpace) {
                 mJustRevertedACommit = true;
-                mSpaceState = SpaceState.PHANTOM;
+                setSpaceState(SpaceState.PHANTOM);
             }
         } else {
             // For languages without spaces, we revert the typed string but the cursor is flush
@@ -2054,6 +2054,15 @@ public final class InputLogic {
      * @param settingsValues the relevant settings values
      * @return a caps mode from TextUtils.CAP_MODE_* or Constants.TextUtils.CAP_MODE_OFF.
      */
+    /**
+     * Sets the space state and shows on the space bar whether a space is pending, i.e. will be
+     * inserted automatically before the next word (phantom space). Change the space state only here.
+     */
+    private void setSpaceState(final int spaceState) {
+        mSpaceState = spaceState;
+        KeyboardSwitcher.getInstance().setPendingSpaceIndicator(spaceState == SpaceState.PHANTOM);
+    }
+
     public int getCurrentAutoCapsState(SettingsValues settingsValues) {
         if (!settingsValues.mAutoCap) return Constants.TextUtils.CAP_MODE_OFF;
 
@@ -2149,7 +2158,7 @@ public final class InputLogic {
         }
         // We have a TLD (or something that looks like this): make sure we don't add
         // a space even if currently in phantom mode.
-        mSpaceState = SpaceState.NONE;
+        setSpaceState(SpaceState.NONE);
         final int codePointBeforeCursor = mConnection.getCodePointBeforeCursor();
         // If no code point, #getCodePointBeforeCursor returns NOT_A_CODE_POINT.
         if (Constants.CODE_PERIOD == codePointBeforeCursor) {
@@ -2341,7 +2350,7 @@ public final class InputLogic {
         mConnection.beginBatchEdit();
         if (SpaceState.PHANTOM == mSpaceState) {
             insertAutomaticSpaceIfOptionsAndTextAllow(settingsValues);
-            mSpaceState = SpaceState.NONE;
+            setSpaceState(SpaceState.NONE);
         }
         mWordComposer.setBatchInputWord(batchInputText);
         enterInlineEmojiSearchIfNeeded(batchInputText.codePointAt(0), settingsValues);
@@ -2349,7 +2358,7 @@ public final class InputLogic {
         mConnection.endBatchEdit();
         // Space state must be updated before calling updateShiftState
         if (settingsValues.mAutospaceAfterGestureTyping)
-            mSpaceState = SpaceState.PHANTOM;
+            setSpaceState(SpaceState.PHANTOM);
         keyboardSwitcher.updateShiftState(getCurrentAutoCapsState(settingsValues), getCurrentRecapitalizeState());
 
         if (isInlineEmojiSearchAction()) {

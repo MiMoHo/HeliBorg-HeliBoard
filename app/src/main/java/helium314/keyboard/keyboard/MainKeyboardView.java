@@ -18,6 +18,7 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Paint.Align;
 import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
 import android.view.ContextThemeWrapper;
 import android.view.LayoutInflater;
@@ -35,6 +36,7 @@ import helium314.keyboard.keyboard.internal.DrawingPreviewPlacerView;
 import helium314.keyboard.keyboard.internal.DrawingProxy;
 import helium314.keyboard.keyboard.internal.GestureFloatingTextDrawingPreview;
 import helium314.keyboard.keyboard.internal.GestureTrailsDrawingPreview;
+import helium314.keyboard.keyboard.internal.KeyboardIconsSet;
 import helium314.keyboard.keyboard.internal.KeyDrawParams;
 import helium314.keyboard.keyboard.internal.KeyPreviewChoreographer;
 import helium314.keyboard.keyboard.internal.KeyPreviewDrawParams;
@@ -75,6 +77,8 @@ public final class MainKeyboardView extends KeyboardView implements DrawingProxy
 
     /* Space key and its icon and background. */
     private Key mSpaceKey;
+    // whether a space will be inserted before the next word (phantom space)
+    private boolean mPendingSpaceIndicator;
     // Stuff to draw language name on spacebar.
     private final int mLanguageOnSpacebarFinalAlpha;
     private final ObjectAnimator mLanguageOnSpacebarFadeoutAnimator;
@@ -672,6 +676,13 @@ public final class MainKeyboardView extends KeyboardView implements DrawingProxy
         invalidateKey(lockKey);
     }
 
+    /** Shows on the space bar whether a space will be inserted before the next word (phantom space). */
+    public void setPendingSpaceIndicator(final boolean pending) {
+        if (mPendingSpaceIndicator == pending) return;
+        mPendingSpaceIndicator = pending;
+        invalidateKey(mSpaceKey);
+    }
+
     // the whole language on spacebar thing could probably be simplified quite a bit
     public void startDisplayLanguageOnSpacebar(final boolean subtypeChanged,
             final int languageOnSpacebarFormatType,
@@ -710,8 +721,11 @@ public final class MainKeyboardView extends KeyboardView implements DrawingProxy
         super.onDrawKeyTopVisuals(key, canvas, paint, params);
         final int code = key.getCode();
         if (code == Constants.CODE_SPACE) {
-            // If input language are explicitly selected.
-            if (mLanguageOnSpacebarFormatType != LanguageOnSpacebarUtils.FORMAT_TYPE_NONE) {
+            // A pending space replaces the language name, so that the change is noticeable.
+            if (mPendingSpaceIndicator) {
+                drawPendingSpaceIndicator(key, canvas);
+            } else if (mLanguageOnSpacebarFormatType != LanguageOnSpacebarUtils.FORMAT_TYPE_NONE) {
+                // If input language are explicitly selected.
                 drawLanguageOnSpacebar(key, canvas, paint);
             }
             // Whether space key needs to show the "..." popup hint for special purposes
@@ -721,6 +735,18 @@ public final class MainKeyboardView extends KeyboardView implements DrawingProxy
         } else if (code == KeyCode.LANGUAGE_SWITCH) {
             drawKeyPopupHint(key, canvas, paint, params);
         }
+    }
+
+    // Draw the space symbol of the current icon set (as on the space key of number layouts) in the middle.
+    private void drawPendingSpaceIndicator(final Key key, final Canvas canvas) {
+        final Keyboard keyboard = getKeyboard();
+        final Drawable icon = keyboard == null ? null
+                : keyboard.mIconsSet.getIconDrawable(KeyboardIconsSet.NAME_SPACE_KEY_FOR_NUMBER_LAYOUT);
+        if (icon == null) return;
+        Settings.getValues().mColors.setColor(icon, ColorType.KEY_ICON);
+        final int iconWidth = Math.min(icon.getIntrinsicWidth(), key.getDrawWidth());
+        final int iconHeight = Math.min(icon.getIntrinsicHeight(), key.getHeight());
+        drawIcon(canvas, icon, (key.getDrawWidth() - iconWidth) / 2, (key.getHeight() - iconHeight) / 2, iconWidth, iconHeight);
     }
 
     private boolean fitsTextIntoWidth(final int width, final String text, final Paint paint) {
