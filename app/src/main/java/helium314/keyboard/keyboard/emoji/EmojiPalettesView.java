@@ -25,6 +25,7 @@ import android.widget.LinearLayout;
 import android.widget.PopupWindow;
 
 import androidx.annotation.NonNull;
+import androidx.core.view.ViewCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager2.widget.ViewPager2;
@@ -258,6 +259,7 @@ public final class EmojiPalettesView extends LinearLayout
 
     // Long-pressing the recents tab while the recents are shown pops up a delete button above the tab.
     // Releasing the finger on that button clears all recent emojis, releasing anywhere else does nothing.
+    // On other pages, the long press shows the tooltip like on the other tabs.
     @SuppressLint("ClickableViewAccessibility")
     private void setupClearRecentsGesture(final View tab) {
         tab.setOnLongClickListener(this::showClearRecentsButton);
@@ -280,7 +282,7 @@ public final class EmojiPalettesView extends LinearLayout
 
     private boolean showClearRecentsButton(final View tab) {
         if (!mEmojiCategory.isInRecentTab() || RecentEmojis.get().isEmpty())
-            return false;
+            return false; // not handled, so the tooltip is shown
         final ImageView button = new ImageView(getContext());
         button.setImageDrawable(KeyboardIconsSet.Companion.getInstance().getNewDrawable(KeyboardIconsSet.NAME_BIN, getContext()));
         button.setContentDescription(getContext().getString(R.string.delete));
@@ -309,6 +311,16 @@ public final class EmojiPalettesView extends LinearLayout
         if (mClearRecentsPopup == null) return;
         mClearRecentsPopup.dismiss();
         mClearRecentsPopup = null;
+    }
+
+    // Like the emoji descriptions, tooltips show the category names on long press.
+    // Set on every start, as the setting may have changed while the emoji view was hidden.
+    private void setTabTooltips() {
+        final boolean show = Settings.getValues().mShowEmojiDescriptions;
+        for (int i = 0; i < mTabStrip.getChildCount(); i++) {
+            final View tab = mTabStrip.getChildAt(i);
+            ViewCompat.setTooltipText(tab, show ? tab.getContentDescription() : null);
+        }
     }
 
     private static boolean isOnView(final View view, final MotionEvent event) {
@@ -425,6 +437,7 @@ public final class EmojiPalettesView extends LinearLayout
     public void startEmojiPalettes(final KeyVisualAttributes keyVisualAttr,
                final EditorInfo editorInfo, final KeyboardActionListener keyboardActionListener) {
         initialize();
+        setTabTooltips();
 
         setupBottomRowKeyboard(editorInfo, keyboardActionListener);
         final KeyDrawParams params = new KeyDrawParams();
