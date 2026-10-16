@@ -43,6 +43,7 @@ import helium314.keyboard.keyboard.KeyboardActionListener;
 import helium314.keyboard.keyboard.KeyboardActionListenerImpl;
 import helium314.keyboard.keyboard.KeyboardMode;
 import helium314.keyboard.keyboard.emoji.EmojiPalettesView;
+import helium314.keyboard.keyboard.emoji.EmojiSearch;
 import helium314.keyboard.keyboard.emoji.EmojiSearchActivity;
 import helium314.keyboard.keyboard.emoji.EmojiSearchActivityKt;
 import helium314.keyboard.keyboard.internal.KeyboardIconsSet;
@@ -696,6 +697,7 @@ public class LatinIME extends InputMethodService implements
         mKeyboardSwitcher.setThemeNeedsReload(); // necessary for emoji search
         EmojiPalettesView.closeDictionaryFacilitator();
         EmojiSearchActivity.Companion.closeDictionaryFacilitator();
+        EmojiSearch.closeDictionaryFacilitator();
     }
 
     // used for debug
@@ -1053,6 +1055,8 @@ public class LatinIME extends InputMethodService implements
     void onFinishInputViewInternal(final boolean finishingInput) {
         super.onFinishInputView(finishingInput);
         Log.i(TAG, "onFinishInputView");
+        // the next time the keyboard is shown, it should not be in a forgotten search
+        mKeyboardSwitcher.stopEmojiSearch(false);
         cleanupInternalStateForFinishInput();
     }
 
@@ -1215,7 +1219,8 @@ public class LatinIME extends InputMethodService implements
             mInsetsUpdater.setInsets(outInsets);
             return;
         }
-        final int stripHeight = mKeyboardSwitcher.isShowingStripContainer() ? mKeyboardSwitcher.getStripContainer().getHeight() : 0;
+        final int stripHeight = (mKeyboardSwitcher.isShowingStripContainer() ? mKeyboardSwitcher.getStripContainer().getHeight() : 0)
+                + mKeyboardSwitcher.getEmojiSearchResultsHeight();
         int visibleTopY = inputHeight - visibleKeyboardView.getHeight() - stripHeight;
         if (Settings.getValues().mIsFloatingKeyboard)
             visibleTopY = getResources().getDisplayMetrics().heightPixels;
@@ -1347,11 +1352,15 @@ public class LatinIME extends InputMethodService implements
     }
 
     public int getCurrentAutoCapsState() {
+        if (mKeyboardSwitcher.isEmojiSearchActive()) // the keyboard types into the emoji search field
+            return Constants.TextUtils.CAP_MODE_OFF;
         return mInputLogic.getCurrentAutoCapsState(mSettings.getCurrent());
     }
 
     @Nullable
     public RecapitalizeMode getCurrentRecapitalizeState() {
+        if (mKeyboardSwitcher.isEmojiSearchActive())
+            return null;
         return mInputLogic.getCurrentRecapitalizeState();
     }
 
@@ -1694,6 +1703,10 @@ public class LatinIME extends InputMethodService implements
     // Hooks for hardware keyboard
     @Override
     public boolean onKeyDown(final int keyCode, final KeyEvent keyEvent) {
+        if (keyCode == KeyEvent.KEYCODE_BACK && mKeyboardSwitcher.isEmojiSearchActive()) {
+            keyEvent.startTracking(); // back closes the emoji search instead of the keyboard, see onKeyUp
+            return true;
+        }
         if (mKeyboardActionListener.onKeyDown(keyCode, keyEvent))
             return true;
         return super.onKeyDown(keyCode, keyEvent);
@@ -1701,6 +1714,12 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public boolean onKeyUp(final int keyCode, final KeyEvent keyEvent) {
+        if (keyCode == KeyEvent.KEYCODE_BACK && mKeyboardSwitcher.isEmojiSearchActive()) {
+            // like the close button of the search, see EmojiSearch for back on Android 15+
+            if (keyEvent.isTracking() && !keyEvent.isCanceled())
+                mKeyboardSwitcher.stopEmojiSearch(true);
+            return true;
+        }
         if (mKeyboardActionListener.onKeyUp(keyCode, keyEvent))
             return true;
         return super.onKeyUp(keyCode, keyEvent);

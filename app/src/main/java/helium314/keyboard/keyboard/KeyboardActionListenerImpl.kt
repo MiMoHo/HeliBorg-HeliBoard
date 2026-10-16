@@ -21,6 +21,7 @@ import helium314.keyboard.latin.LatinIME
 import helium314.keyboard.latin.RichInputMethodManager
 import helium314.keyboard.latin.common.Constants
 import helium314.keyboard.latin.common.InputPointers
+import helium314.keyboard.latin.common.StringUtils
 import helium314.keyboard.latin.common.combiningRange
 import helium314.keyboard.latin.common.moveStepsToCharCount
 import helium314.keyboard.latin.inputlogic.InputLogic
@@ -133,6 +134,8 @@ class KeyboardActionListenerImpl(private val latinIME: LatinIME, private val inp
         }
         if (Settings.getValues().mIsLocked && KeyCode.isIsBlockedWhenLocked(primaryCode))
             return
+        if (keyboardSwitcher.isEmojiSearchActive && onEmojiSearchCodeInput(primaryCode))
+            return
         val mkv = keyboardSwitcher.mainKeyboardView
 
         // checking if the character is a combining accent
@@ -151,7 +154,40 @@ class KeyboardActionListenerImpl(private val latinIME: LatinIME, private val inp
         metaAfterCodeInput(primaryCode)
     }
 
-    override fun onTextInput(text: String?) = latinIME.onTextInput(text)
+    override fun onTextInput(text: String?) {
+        if (keyboardSwitcher.isEmojiSearchActive) {
+            if (text != null) keyboardSwitcher.emojiSearch.addText(text)
+            return
+        }
+        latinIME.onTextInput(text)
+    }
+
+    /**
+     * While the emoji search is active, typing edits the search query instead of the text field of the app.
+     * Returns false for keys that end the search and then work as usual, e.g. the emoji, settings or cursor keys.
+     */
+    private fun onEmojiSearchCodeInput(primaryCode: Int): Boolean {
+        val emojiSearch = keyboardSwitcher.emojiSearch
+        when (primaryCode) {
+            Constants.CODE_ENTER, KeyCode.SHIFT_ENTER -> {
+                keyboardSwitcher.onEmojiSearchEnter()
+                return true
+            }
+            KeyCode.DELETE -> emojiSearch.deleteLastCharacter()
+            KeyCode.SHIFT, KeyCode.CAPS_LOCK, KeyCode.SYMBOL_ALPHA, KeyCode.SYMBOL, KeyCode.ALPHA, KeyCode.NUMPAD -> {} // see below
+            else -> {
+                if (primaryCode <= 0) {
+                    keyboardSwitcher.stopEmojiSearch(false)
+                    return false
+                }
+                emojiSearch.addText(StringUtils.newSingleCodePointString(primaryCode))
+            }
+        }
+        // shift state and layout switches as for any other input
+        val event = Event.createSoftwareKeypressEvent(primaryCode, 0, Constants.NOT_A_COORDINATE, Constants.NOT_A_COORDINATE, false)
+        keyboardSwitcher.onEvent(event, latinIME.currentAutoCapsState, latinIME.currentRecapitalizeState)
+        return true
+    }
 
     override fun onContent(content: InputContentInfoCompat) {
         val editorInfo = latinIME.currentInputEditorInfo
@@ -252,6 +288,7 @@ class KeyboardActionListenerImpl(private val latinIME: LatinIME, private val inp
     }
 
     override fun onMoveDeletePointer(steps: Int) {
+        if (keyboardSwitcher.isEmojiSearchActive) return // would select text in the text field of the app
         inputLogic.finishInput()
         val end = connection.expectedSelectionEnd
         val actualSteps = actualSteps(steps)
@@ -306,7 +343,7 @@ class KeyboardActionListenerImpl(private val latinIME: LatinIME, private val inp
     }
 
     private fun onMoveCursorVertically(steps: Int): Boolean {
-        if (steps == 0) return false
+        if (steps == 0 || keyboardSwitcher.isEmojiSearchActive) return false
         val code = if (steps < 0) {
             gestureMoveBackHaptics()
             KeyCode.ARROW_UP
@@ -319,7 +356,7 @@ class KeyboardActionListenerImpl(private val latinIME: LatinIME, private val inp
     }
 
     private fun onMoveCursorHorizontally(rawSteps: Int): Boolean {
-        if (rawSteps == 0) return false
+        if (rawSteps == 0 || keyboardSwitcher.isEmojiSearchActive) return false
         // for RTL languages we want to invert pointer movement
         val rtl = RichInputMethodManager.getInstance().currentSubtype.isRtlSubtype
         val steps = if (rtl) -rawSteps else rawSteps

@@ -875,7 +875,7 @@ public final class InputLogic {
                 break;
             case KeyCode.EMOJI_SEARCH:
                 commitTyped(sv, LastComposedWord.NOT_A_SEPARATOR);
-                mLatinIME.launchEmojiSearch();
+                KeyboardSwitcher.getInstance().startEmojiSearch();
                 break;
             case KeyCode.SEND_INTENT_ONE, KeyCode.SEND_INTENT_TWO, KeyCode.SEND_INTENT_THREE:
                 IntentUtils.handleSendIntentKey(mLatinIME, event.getKeyCode());

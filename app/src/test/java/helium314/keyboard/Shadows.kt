@@ -133,6 +133,8 @@ class ShadowInputMethodService {
         var composingStart = -1
         var composingEnd = -1
         var currentInputType = InputType.TYPE_CLASS_TEXT
+        /** how often the keyboard asked to be hidden, by itself or on back */
+        var hideRequests = 0
 
         // convenience for access
         val textBeforeCursor get() = text.substring(0, selectionStart)
@@ -152,7 +154,14 @@ class ShadowInputMethodService {
             composingStart = -1
             composingEnd = -1
             currentInputType = InputType.TYPE_CLASS_TEXT
+            hideRequests = 0
         }
+    }
+
+    // the private InputMethodService.requestHideSelf(flags, reason), called by requestHideSelf(flags) and on back
+    @Implementation
+    fun requestHideSelf(flags: Int, reason: Int) {
+        hideRequests++
     }
 
     @Implementation

@@ -24,6 +24,39 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         style="?attr/suggestionStripViewStyle" />
+    <!-- replaces the emoji tab strip while searching emojis, see EmojiSearch -->
+    <LinearLayout
+        android:id="@+id/emoji_search_bar"
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center_vertical"
+        android:visibility="gone"
+        style="?attr/suggestionStripViewStyle" >
+        <helium314.keyboard.keyboard.emoji.EmojiSearchField
+            android:id="@+id/emoji_search_field"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginStart="6dp"
+            android:layout_marginTop="5dp"
+            android:layout_marginBottom="5dp"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:drawablePadding="8dp"
+            android:gravity="center_vertical|start"
+            android:textAlignment="viewStart"
+            android:singleLine="true"
+            android:ellipsize="start"
+            android:textSize="16sp"
+            android:hint="@string/emoji_search_title" />
+        <ImageView
+            android:id="@+id/emoji_search_close"
+            android:layout_width="@dimen/config_suggestions_strip_height"
+            android:layout_height="match_parent"
+            android:scaleType="center"
+            android:contentDescription="@string/dialog_close" />
+    </LinearLayout>
     <HorizontalScrollView
         android:id="@+id/clipboard_strip_scroll_view"
         android:layout_width="match_parent"
