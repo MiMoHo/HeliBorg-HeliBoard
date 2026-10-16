@@ -24,4 +24,7 @@
         <item name="android:textColorAlertDialogListItem">@color/foreground</item>
         <item name="android:colorForeground">@color/foreground</item>
     </style>
+
+    <!-- Theme of the toast-like message shown in the keyboard, which is only used from Android 13 on (see values-v31) -->
+    <style name="fakeToastTheme" parent="@android:style/Theme.DeviceDefault.Light" />
 </resources>

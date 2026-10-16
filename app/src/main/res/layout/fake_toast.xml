@@ -2,17 +2,35 @@
 <!--
     SPDX-License-Identifier: GPL-3.0-only
 -->
-<TextView
+<!-- Copies the text toast that the system shows from Android 12 on (SystemUI's text_toast.xml): the device's
+     toast frame and colours, the app icon and the text style. Unlike the system toast, longer messages are not cut
+     off after two lines. -->
+<LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:layout_gravity="center"
+    android:layout_gravity="bottom|center_horizontal"
     android:layout_marginHorizontal="16dp"
     android:paddingHorizontal="16dp"
-    android:paddingVertical="8dp"
-    android:drawablePadding="12dp"
-    android:drawableStart="@mipmap/ic_launcher_round"
-    android:background="@drawable/toast_background"
-    android:textColor="@android:color/white"
-    android:textAppearance="?android:textAppearanceMedium"
-    android:visibility="gone" />
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:background="@android:drawable/toast_frame"
+    android:elevation="2dp"
+    android:theme="@style/fakeToastTheme"
+    android:visibility="gone">
+    <ImageView
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_marginVertical="10dp"
+        android:layout_marginEnd="10dp"
+        android:src="@mipmap/ic_launcher"
+        android:importantForAccessibility="no" />
+    <TextView
+        android:id="@+id/fakeToastText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingVertical="12dp"
+        android:textSize="14sp"
+        android:lineHeight="20sp"
+        android:textColor="?android:attr/textColorPrimary" />
+</LinearLayout>

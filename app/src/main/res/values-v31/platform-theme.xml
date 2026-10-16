@@ -35,4 +35,6 @@
         <item name="android:dialogCornerRadius">28dp</item>
     </style>
 
+    <!-- Like the system toast: the device's colours, following the system's dark mode -->
+    <style name="fakeToastTheme" parent="@android:style/Theme.DeviceDefault.DayNight" />
 </resources>

@@ -67,4 +67,19 @@ class FakeToastPositionTest {
         keyboardSwitcher.setEmojiKeyboard()
         assertToastJustAboveKeyboard("emoji")
     }
+
+    // e.g. a hardware keyboard hides the keyboard frame: then use the distance the system toast keeps from the bottom
+    @Test fun toastWithoutVisibleKeyboardIsWhereTheSystemShowsToasts() {
+        inputView.findViewById<View>(R.id.main_keyboard_frame).visibility = View.GONE
+        layoutLikeTheImeWindow()
+        keyboardSwitcher.showToast("Recent emojis cleared", true)
+        layoutLikeTheImeWindow()
+        val toast = inputView.findViewById<View>(R.id.fakeToast)
+        val toastBottom = toast.y + toast.height
+        val systemOffset = 48 * latinIME.resources.displayMetrics.density
+        println("GRID toast without keyboard: inputView=${inputView.height} toast=${toast.y.toInt()}..${toastBottom.toInt()}")
+        assertTrue(toast.visibility == View.VISIBLE, "toast not shown")
+        assertTrue(abs(inputView.height - systemOffset - toastBottom) <= 1f,
+            "toast bottom $toastBottom should be $systemOffset px above the bottom ${inputView.height}, not mid-screen")
+    }
 }
