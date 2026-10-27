@@ -49,8 +49,9 @@ class ClipboardLayoutParams(ctx: Context) {
 
     fun setItemProperties(view: View) {
         (view.layoutParams as RecyclerView.LayoutParams).apply {
+            // same gap between rows as between columns
             topMargin = keyHorizontalGap / 2
-            bottomMargin = keyVerticalGap / 2
+            bottomMargin = keyHorizontalGap / 2
             marginStart = keyHorizontalGap / 2
             marginEnd = keyHorizontalGap / 2
             view.layoutParams = this
